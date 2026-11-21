@@ -1,0 +1,2826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ARCTIC FLIGHT — 16-Bit Atmospheric Arcade</title>
+  <style>
+    /* ==========================================================================
+       ARCTIC FLIGHT — 16-Bit Retro Arcade Aesthetic & Palette Tokens
+       ========================================================================== */
+    :root {
+      --bg-void: #070b14;
+      --bg-panel: #101826;
+      --bg-panel-hi: #1b283c;
+      --bezel-outer: #2c3e55;
+      --bezel-inner: #0b111c;
+      --border-light: #8ea8bd;
+      --border-mid: #4a6278;
+      --border-dark: #04070d;
+      --text-snow: #e8eff5;
+      --text-ice: #9db7ca;
+      --accent-gold: #e5b85c;
+      --accent-teal: #58b4a8;
+      --accent-red: #d96b6b;
+      --accent-green: #69b882;
+      --pixel-font: 'Courier New', ui-monospace, 'Lucida Console', Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      font-family: var(--pixel-font);
+      background-color: var(--bg-void);
+      /* Subtle retro pixel dithering grid background */
+      background-image:
+        linear-gradient(rgba(142, 168, 189, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(142, 168, 189, 0.04) 1px, transparent 1px),
+        radial-gradient(circle at 50% 0%, #152336 0%, #070b14 70%);
+      background-size: 16px 16px, 16px 16px, 100% 100%;
+      color: var(--text-snow);
+      overflow-x: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 12px 10px 18px;
+    }
+
+    /* ==========================================================================
+       Arcade Cabinet Frame & Integrated Top HUD Bezel
+       ========================================================================== */
+    .arcade-shell {
+      width: 100%;
+      max-width: 454px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .cabinet-frame {
+      width: 100%;
+      background: var(--bg-panel);
+      border: 3px solid var(--border-light);
+      box-shadow:
+        inset 0 0 0 3px var(--bezel-inner),
+        0 0 0 3px var(--border-dark),
+        6px 6px 0 var(--border-dark);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* Classic SNES / Arcade Top HUD Strip inside the Frame */
+    .arcade-hud {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      background: var(--bezel-inner);
+      border: 2px solid var(--border-mid);
+      box-shadow: inset 0 -2px 0 #04070d;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .hud-left {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1px;
+    }
+
+    .hud-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .hud-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 1px;
+    }
+
+    .hud-label {
+      font-size: 0.62rem;
+      color: var(--text-ice);
+      letter-spacing: 1.4px;
+    }
+
+    .hud-value {
+      font-size: 1.12rem;
+      font-weight: 900;
+      color: var(--text-snow);
+      text-shadow: 2px 2px 0 #04070d;
+      line-height: 1.1;
+    }
+
+    .hud-value.score-pop {
+      color: var(--accent-gold);
+    }
+
+    .hud-biome-tag {
+      font-size: 0.66rem;
+      font-weight: 800;
+      padding: 3px 7px;
+      background: var(--bg-panel-hi);
+      border: 2px solid var(--border-mid);
+      color: var(--accent-teal);
+      letter-spacing: 1px;
+      white-space: nowrap;
+    }
+
+    .hud-biome-tag.storm-alert {
+      color: #f8fafc;
+      border-color: var(--accent-gold);
+      background: #2b3a4a;
+    }
+
+    .hud-stars {
+      display: inline-flex;
+      gap: 2px;
+      font-size: 0.72rem;
+      line-height: 1;
+      margin-top: 1px;
+    }
+
+    .hud-star {
+      color: #2d3e52;
+      text-shadow: 1px 1px 0 #04070d;
+    }
+
+    .hud-star.earned {
+      color: var(--accent-gold);
+    }
+
+    /* ==========================================================================
+       Responsive Canvas Viewport & Retro Arcade Overlays
+       ========================================================================== */
+    .stage-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 2 / 3;
+      max-height: 73vh;
+      overflow: hidden;
+      border: 2px solid var(--border-mid);
+      background: #132230;
+      touch-action: none;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    /* Compact Retro Event Banner (Inside Canvas Top Edge) */
+    .phase-banner {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-8px);
+      padding: 4px 10px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: var(--text-snow);
+      background: #0b111c;
+      border: 2px solid var(--border-light);
+      box-shadow: 3px 3px 0 #04070d;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 8;
+      white-space: nowrap;
+      transition: opacity 0.2s steps(4), transform 0.2s steps(4);
+    }
+
+    .phase-banner.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Retro Arcade Overlays (No blur / No frosted glass) */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(6, 10, 18, 0.74);
+      z-index: 12;
+      opacity: 1;
+      transition: opacity 0.16s linear;
+    }
+
+    .overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .retro-card {
+      position: relative;
+      width: 100%;
+      max-width: 316px;
+      background-color: #0e1624;
+      /* Subtle pixel-grid + stepped mountain horizon accent */
+      background-image:
+        linear-gradient(rgba(142, 168, 189, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(142, 168, 189, 0.06) 1px, transparent 1px),
+        linear-gradient(180deg, #121e30 0%, #0b121e 100%);
+      background-size: 12px 12px, 12px 12px, 100% 100%;
+      border: 3px solid var(--border-light);
+      box-shadow:
+        inset 0 0 0 3px #070b14,
+        6px 6px 0 #04070d;
+      padding: 20px 18px 18px;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    /* Decorative angular mountain horizon silhouette along card bottom */
+    .card-horizon {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 36px;
+      pointer-events: none;
+      opacity: 0.28;
+    }
+
+    .card-content {
+      position: relative;
+      z-index: 2;
+    }
+
+    .retro-kicker {
+      display: inline-block;
+      font-size: 0.66rem;
+      font-weight: 800;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      color: var(--accent-teal);
+      margin-bottom: 8px;
+      padding: 2px 8px;
+      border: 1px solid var(--border-mid);
+      background: #070b14;
+    }
+
+    .retro-title {
+      font-size: 1.72rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      line-height: 1.15;
+      margin-bottom: 10px;
+      background: linear-gradient(180deg, #f8fafc 0%, #c6dae8 52%, #6d8ea0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(3px 3px 0 #04070d);
+    }
+
+    .retro-title.gameover-title {
+      background: linear-gradient(180deg, #f5d38c 0%, #e59866 55%, #c95b5b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .retro-desc {
+      font-size: 0.78rem;
+      color: var(--text-ice);
+      line-height: 1.48;
+      margin-bottom: 14px;
+    }
+
+    .key-hints {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .kbd {
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 3px 7px;
+      background: #172334;
+      border: 2px solid var(--border-mid);
+      box-shadow: 2px 2px 0 #04070d;
+      color: var(--text-snow);
+      text-transform: uppercase;
+    }
+
+    /* Retro Arcade Scoreboard */
+    .retro-scores {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .retro-score-cell {
+      background: #080d17;
+      border: 2px solid var(--border-mid);
+      padding: 8px 6px;
+    }
+
+    .retro-score-label {
+      font-size: 0.64rem;
+      color: var(--text-ice);
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+
+    .retro-score-num {
+      font-size: 1.45rem;
+      font-weight: 900;
+      color: var(--text-snow);
+      text-shadow: 2px 2px 0 #04070d;
+    }
+
+    .retro-score-num.best {
+      color: var(--accent-gold);
+    }
+
+    .rank-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      min-height: 24px;
+    }
+
+    .rank-badge {
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 3px 8px;
+      border: 2px solid var(--border-mid);
+      background: #142030;
+      color: var(--text-snow);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .rank-badge.earned {
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+    }
+
+    .new-record-tag {
+      font-size: 0.66rem;
+      font-weight: 900;
+      padding: 3px 7px;
+      background: var(--accent-gold);
+      color: #070b14;
+      border: 2px solid #04070d;
+      letter-spacing: 0.8px;
+    }
+
+    .prompt-question {
+      font-size: 0.86rem;
+      font-weight: 900;
+      letter-spacing: 1.6px;
+      color: var(--text-snow);
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 0 #04070d;
+    }
+
+    /* ==========================================================================
+       Retro Arcade Buttons (Sharp Borders & Stepped Shadows)
+       ========================================================================== */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-family: var(--pixel-font);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      border: 2px solid var(--border-light);
+      cursor: pointer;
+      box-shadow: 4px 4px 0 #04070d;
+      transition: transform 0.06s steps(2), box-shadow 0.06s steps(2), background-color 0.1s linear;
+    }
+
+    .btn:active {
+      transform: translate(3px, 3px);
+      box-shadow: 1px 1px 0 #04070d;
+    }
+
+    .btn-start {
+      width: 100%;
+      padding: 11px 16px;
+      font-size: 0.92rem;
+      color: #070b14;
+      background: var(--accent-teal);
+      border-color: #c8ece6;
+    }
+
+    .btn-start:hover {
+      background: #71c9bd;
+    }
+
+    .btn-yes {
+      flex: 1;
+      padding: 10px 14px;
+      font-size: 0.86rem;
+      color: #070b14;
+      background: var(--accent-green);
+      border-color: #bfe6cc;
+    }
+
+    .btn-yes:hover {
+      background: #80cc98;
+    }
+
+    .btn-no {
+      flex: 1;
+      padding: 10px 14px;
+      font-size: 0.86rem;
+      color: var(--text-snow);
+      background: #273447;
+      border-color: var(--border-light);
+    }
+
+    .btn-no:hover {
+      background: #36475e;
+    }
+
+    /* External Controls Bar (Outside Frame) */
+    .controls-bar {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn-control {
+      flex: 1;
+      padding: 9px 10px;
+      font-size: 0.74rem;
+      color: var(--text-snow);
+      background: var(--bg-panel);
+      border: 2px solid var(--border-mid);
+      box-shadow: 3px 3px 0 #04070d;
+    }
+
+    .btn-control:hover {
+      background: var(--bg-panel-hi);
+      border-color: var(--border-light);
+    }
+
+    .btn-control.active-state {
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+    }
+
+    .footer-note {
+      font-size: 0.7rem;
+      color: var(--text-ice);
+      text-align: center;
+      letter-spacing: 0.6px;
+    }
+
+    @media (max-width: 420px) {
+      body {
+        padding: 8px 6px 14px;
+      }
+      .cabinet-frame {
+        padding: 4px;
+      }
+      .arcade-hud {
+        padding: 5px 7px;
+      }
+      .hud-value {
+        font-size: 0.98rem;
+      }
+      .stage-wrapper {
+        max-height: 70vh;
+      }
+      .btn-control {
+        font-size: 0.68rem;
+        padding: 8px 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="arcade-shell">
+    <!-- Retro Arcade Cabinet Frame with Integrated Top-Edge HUD -->
+    <section class="cabinet-frame" aria-label="Arctic Flight Arcade Cabinet">
+      <header class="arcade-hud">
+        <div class="hud-left">
+          <span class="hud-label">SCORE</span>
+          <span id="hudScore" class="hud-value" aria-live="polite">000</span>
+        </div>
+
+        <div class="hud-center">
+          <span id="hudBiome" class="hud-biome-tag">FOREST</span>
+        </div>
+
+        <div class="hud-right">
+          <span class="hud-label">BEST <strong id="hudBest">000</strong></span>
+          <div class="hud-stars" id="hudStars" aria-label="Milestone Stars">
+            <span class="hud-star" data-req="5">★</span>
+            <span class="hud-star" data-req="15">★</span>
+            <span class="hud-star" data-req="30">★</span>
+            <span class="hud-star" data-req="50">★</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Playable Canvas Viewport -->
+      <div class="stage-wrapper" id="stageWrapper">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Compact Retro Event Banner -->
+        <div id="phaseBanner" class="phase-banner" aria-live="polite"></div>
+
+        <!-- Start Overlay -->
+        <div id="startOverlay" class="overlay">
+          <div class="retro-card">
+            <svg class="card-horizon" viewBox="0 0 320 36" preserveAspectRatio="none" aria-hidden="true">
+              <polygon points="0,36 0,24 38,8 74,22 126,4 176,20 228,10 278,24 320,12 320,36" fill="#58b4a8"/>
+            </svg>
+            <div class="card-content">
+              <div class="retro-kicker">16-BIT SNOW ODYSSEY</div>
+              <h1 class="retro-title">ARCTIC<br>FLIGHT</h1>
+              <p class="retro-desc">
+                Guide the Shima Enaga over rolling snow forests, pine clusters, and stratified glacial caverns.
+              </p>
+              <div class="key-hints" aria-hidden="true">
+                <span class="kbd">SPACE</span>
+                <span class="kbd">↑</span>
+                <span class="kbd">CLICK</span>
+                <span class="kbd">TAP</span>
+              </div>
+              <button id="startBtn" class="btn btn-start" type="button">
+                ▶ PRESS START
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pause Overlay -->
+        <div id="pauseOverlay" class="overlay hidden">
+          <div class="retro-card">
+            <svg class="card-horizon" viewBox="0 0 320 36" preserveAspectRatio="none" aria-hidden="true">
+              <polygon points="0,36 0,24 44,10 92,24 160,6 226,22 280,12 320,24 320,36" fill="#8ea8bd"/>
+            </svg>
+            <div class="card-content">
+              <div class="retro-kicker">FLIGHT HALTED</div>
+              <h2 class="retro-title">PAUSED</h2>
+              <p class="retro-desc">Catch your breath above the pines. Ready to resume?</p>
+              <button id="resumeBtn" class="btn btn-start" type="button">
+                ▶ RESUME
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div id="gameOverOverlay" class="overlay hidden">
+          <div class="retro-card">
+            <svg class="card-horizon" viewBox="0 0 320 36" preserveAspectRatio="none" aria-hidden="true">
+              <polygon points="0,36 0,22 50,10 105,24 166,6 220,22 276,12 320,24 320,36" fill="#d96b6b"/>
+            </svg>
+            <div class="card-content">
+              <div class="retro-kicker" id="finalBiomeLabel">SNOWY FOREST</div>
+              <h2 class="retro-title gameover-title">GAME OVER</h2>
+
+              <div class="rank-row">
+                <span id="rankBadge" class="rank-badge">RANK: FLEDGLING</span>
+                <span id="newRecordTag" class="new-record-tag" style="display: none;">NEW HI-SCORE</span>
+              </div>
+
+              <div class="retro-scores">
+                <div class="retro-score-cell">
+                  <div class="retro-score-label">SCORE</div>
+                  <div id="finalScore" class="retro-score-num">000</div>
+                </div>
+                <div class="retro-score-cell">
+                  <div class="retro-score-label">BEST</div>
+                  <div id="finalBest" class="retro-score-num best">000</div>
+                </div>
+              </div>
+
+              <div class="prompt-question">PLAY AGAIN?</div>
+              <div class="btn-row">
+                <button id="yesBtn" class="btn btn-yes" type="button">YES</button>
+                <button id="noBtn" class="btn btn-no" type="button">NO</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- External Tactile Retro Controls -->
+    <div class="controls-bar">
+      <button id="pauseToggleBtn" class="btn btn-control" type="button" title="Pause / Resume (P)">
+        <span id="pauseLabel">⏸ PAUSE</span>
+      </button>
+      <button id="soundToggleBtn" class="btn btn-control" type="button" title="Toggle Audio (M)">
+        <span id="soundLabel">♪ SFX ON</span>
+      </button>
+      <button id="quickRestartBtn" class="btn btn-control" type="button" title="Restart Flight (R)">
+        <span>↺ RESET</span>
+      </button>
+    </div>
+
+    <p class="footer-note">SPACE / ↑ / CLICK / TAP: FLAP • P: PAUSE • M: SFX • R: RESET</p>
+  </main>
+
+  <script>
+    /**
+     * =========================================================================
+     * ARCTIC FLIGHT — 16-Bit Atmospheric Overhaul (100% Procedural HTML5 Canvas)
+     * =========================================================================
+     * Key Architectural Features:
+     *  1. Retro Arcade UI & Integrated Top Bezel HUD (Score, Biome, Best & Stars).
+     *  2. Nimbler, Scaled-Down Shima Enaga (~28% smaller body & forgiving hitbox).
+     *  3. Angular Polygonal Art & Desaturated Multi-Stop Atmospheric Gradients.
+     *  4. 4-Layer Parallax Pine Forest Outdoors + Rolling Terrain Height Function.
+     *  5. Chrome Dino-Style 2–4 Pine Tree Clusters planted directly on terrain.
+     *  6. Stratified, Textured Glacial Ice Cave with Multi-Depth Glowing Crystals
+     *     and Bioluminescent Ceiling Glowworms at night.
+     *  7. Non-Collidable 2.5D Foreground Ice Cave Entrance/Exit Archway Transition.
+     *  8. Crisp Retro-Synth Flap & Game Over Audio (Individual Score Chime Removed).
+     */
+    (function () {
+      'use strict';
+
+      // -----------------------------------------------------------------------
+      // Logical World & Physics Constants
+      // -----------------------------------------------------------------------
+      const WORLD_W = 400;
+      const WORLD_H = 600;
+      const BASE_GROUND_Y = WORLD_H - 84; // 516px base terrain height
+
+      const PHYSICS = {
+        gravity: 0.39,
+        jumpVelocity: -7.05,
+        maxFallSpeed: 9.6,
+        scrollSpeed: 2.6,
+        caveGapMin: 132,
+        caveGapMax: 156,
+        dayNightCycleSeconds: 76 // Slower, smoother Day -> Night -> Day loop
+      };
+
+      const BIOMES = {
+        OUTDOOR: 'OUTDOOR',
+        TRANSITION_IN: 'TRANSITION_IN',
+        CAVE: 'CAVE',
+        TRANSITION_OUT: 'TRANSITION_OUT'
+      };
+
+      const STATES = {
+        READY: 'READY',
+        PLAYING: 'PLAYING',
+        PAUSED: 'PAUSED',
+        GAME_OVER: 'GAME_OVER'
+      };
+
+      const STORAGE_KEY = 'arctic_flight_high_score_v1';
+
+      // -----------------------------------------------------------------------
+      // DOM References
+      // -----------------------------------------------------------------------
+      const stageWrapper = document.getElementById('stageWrapper');
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+
+      const hudScoreEl = document.getElementById('hudScore');
+      const hudBestEl = document.getElementById('hudBest');
+      const hudBiomeEl = document.getElementById('hudBiome');
+      const hudStarEls = Array.from(document.querySelectorAll('.hud-star'));
+      const phaseBannerEl = document.getElementById('phaseBanner');
+
+      const startOverlay = document.getElementById('startOverlay');
+      const pauseOverlay = document.getElementById('pauseOverlay');
+      const gameOverOverlay = document.getElementById('gameOverOverlay');
+
+      const finalScoreEl = document.getElementById('finalScore');
+      const finalBestEl = document.getElementById('finalBest');
+      const finalBiomeLabelEl = document.getElementById('finalBiomeLabel');
+      const rankBadgeEl = document.getElementById('rankBadge');
+      const newRecordTagEl = document.getElementById('newRecordTag');
+
+      const startBtn = document.getElementById('startBtn');
+      const resumeBtn = document.getElementById('resumeBtn');
+      const yesBtn = document.getElementById('yesBtn');
+      const noBtn = document.getElementById('noBtn');
+      const pauseToggleBtn = document.getElementById('pauseToggleBtn');
+      const pauseLabel = document.getElementById('pauseLabel');
+      const soundToggleBtn = document.getElementById('soundToggleBtn');
+      const soundLabel = document.getElementById('soundLabel');
+      const quickRestartBtn = document.getElementById('quickRestartBtn');
+
+      // -----------------------------------------------------------------------
+      // Math, Formatting & Color Interpolation Helpers
+      // -----------------------------------------------------------------------
+      function padScore(n) {
+        return String(Math.max(0, Math.floor(n))).padStart(3, '0');
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function clamp(val, min, max) {
+        return Math.max(min, Math.min(max, val));
+      }
+
+      function hexToRgb(hex) {
+        const clean = hex.replace('#', '');
+        const num = parseInt(clean, 16);
+        return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+      }
+
+      function lerpColor(hexA, hexB, t) {
+        const cA = hexToRgb(hexA);
+        const cB = hexToRgb(hexB);
+        return `rgb(${Math.round(lerp(cA[0], cB[0], t))}, ${Math.round(lerp(cA[1], cB[1], t))}, ${Math.round(lerp(cA[2], cB[2], t))})`;
+      }
+
+      function lerpRgba(hexA, hexB, t, alpha) {
+        const cA = hexToRgb(hexA);
+        const cB = hexToRgb(hexB);
+        return `rgba(${Math.round(lerp(cA[0], cB[0], t))}, ${Math.round(lerp(cA[1], cB[1], t))}, ${Math.round(lerp(cA[2], cB[2], t))}, ${alpha})`;
+      }
+
+      // Deterministic hash for procedural rock texture & mountain facets
+      function hash1D(n) {
+        const x = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
+        return x - Math.floor(x);
+      }
+
+      // -----------------------------------------------------------------------
+      // Continuous Undulating Terrain Height Function
+      // -----------------------------------------------------------------------
+      function getGroundY(worldX) {
+        // Gentle rolling hills & rocky dips (±18px) for natural terrain relief
+        const primary = Math.sin(worldX * 0.0082) * 13;
+        const secondary = Math.sin(worldX * 0.0195 + 1.35) * 5.5;
+        return BASE_GROUND_Y + primary + secondary;
+      }
+
+      // -----------------------------------------------------------------------
+      // Retro-Synth Web Audio FX (Score Chime Removed per Request)
+      // -----------------------------------------------------------------------
+      const SoundFX = (() => {
+        let audioCtx = null;
+        let enabled = true;
+
+        function ensureContext() {
+          if (!enabled) return null;
+          try {
+            if (!audioCtx) {
+              const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+              if (AudioContextClass) audioCtx = new AudioContextClass();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+              audioCtx.resume();
+            }
+            return audioCtx;
+          } catch (_) {
+            return null;
+          }
+        }
+
+        // Crisp 16-bit retro flap chirp
+        function playFlap() {
+          const ac = ensureContext();
+          if (!ac) return;
+          try {
+            const now = ac.currentTime;
+            const osc = ac.createOscillator();
+            const gain = ac.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(310, now);
+            osc.frequency.setValueAtTime(440, now + 0.025);
+            osc.frequency.exponentialRampToValueAtTime(600, now + 0.068);
+
+            gain.gain.setValueAtTime(0.11, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+            osc.connect(gain);
+            gain.connect(ac.destination);
+            osc.start(now);
+            osc.stop(now + 0.085);
+          } catch (_) {}
+        }
+
+        // Classic retro-arcade descending crunch on collision / game over
+        function playHit() {
+          const ac = ensureContext();
+          if (!ac) return;
+          try {
+            const now = ac.currentTime;
+            const osc = ac.createOscillator();
+            const gain = ac.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(210, now);
+            osc.frequency.setValueAtTime(145, now + 0.055);
+            osc.frequency.exponentialRampToValueAtTime(52, now + 0.22);
+
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+
+            osc.connect(gain);
+            gain.connect(ac.destination);
+            osc.start(now);
+            osc.stop(now + 0.25);
+          } catch (_) {}
+        }
+
+        return {
+          playFlap,
+          playHit,
+          toggle() {
+            enabled = !enabled;
+            return enabled;
+          }
+        };
+      })();
+
+      // -----------------------------------------------------------------------
+      // Persistent High Score
+      // -----------------------------------------------------------------------
+      function loadHighScore() {
+        try {
+          const parsed = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+          return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+        } catch (_) {
+          return 0;
+        }
+      }
+
+      function saveHighScore(val) {
+        try {
+          localStorage.setItem(STORAGE_KEY, String(val));
+        } catch (_) {}
+      }
+
+      // -----------------------------------------------------------------------
+      // HUD & Event Banner Helpers
+      // -----------------------------------------------------------------------
+      let bannerTimeout = null;
+      function showPhaseBanner(text) {
+        phaseBannerEl.textContent = text;
+        phaseBannerEl.classList.add('visible');
+        if (bannerTimeout) clearTimeout(bannerTimeout);
+        bannerTimeout = setTimeout(() => {
+          phaseBannerEl.classList.remove('visible');
+        }, 2500);
+      }
+
+      function updateStarsHUD(bestVal) {
+        hudStarEls.forEach((star) => {
+          const req = parseInt(star.dataset.req, 10);
+          star.classList.toggle('earned', bestVal >= req);
+        });
+      }
+
+      function updateBiomeHUD() {
+        if (blizzard.intensity > 0.35 && biome === BIOMES.OUTDOOR) {
+          hudBiomeEl.textContent = 'BLIZZARD';
+          hudBiomeEl.classList.add('storm-alert');
+        } else {
+          hudBiomeEl.classList.remove('storm-alert');
+          if (biome === BIOMES.OUTDOOR) {
+            hudBiomeEl.textContent = nightFactor > 0.55 ? 'AURORA' : 'FOREST';
+          } else if (biome === BIOMES.CAVE) {
+            hudBiomeEl.textContent = nightFactor > 0.55 ? 'DEEP CAVE' : 'ICE CAVE';
+          } else {
+            hudBiomeEl.textContent = 'ENTRANCE';
+          }
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // Game State & Atmospheric Variables
+      // -----------------------------------------------------------------------
+      let gameState = STATES.READY;
+      let score = 0;
+      let highScore = loadHighScore();
+      let isNewBest = false;
+      let gameOverTimestamp = 0;
+
+      // Biome & Foreground Cave Archway Transition State
+      let biome = BIOMES.OUTDOOR;
+      let biomeObstaclesSpawned = 0;
+      let nextBiomeQuota = 9;
+      let transitionProgress = 0;
+      const TRANSITION_DURATION = 205; // Safe obstacle-free glide
+
+      // Continuous World Distance & Day/Night Cycle
+      let worldScrollX = 0;
+      let worldTime = 0;
+      let dayNightSeconds = 0;
+      let nightFactor = 0; // 0 = Desaturated Arctic Day, 1 = Charcoal/Teal Aurora Night
+
+      // Random Snowstorm / Blizzard Event (20+ points, Outdoor only)
+      const blizzard = {
+        active: false,
+        intensity: 0,
+        remainingSec: 0,
+        cooldownSec: 4,
+        windPhase: 0
+      };
+
+      // Visual Polish
+      let flashAlpha = 0;
+      let shakeTime = 0;
+      let idleTime = 0;
+
+      // Fair Obstacle Spawning Memory
+      let lastClusterPeak = 175;
+      let lastCaveGapCenter = BASE_GROUND_Y * 0.48;
+      let nextSpawnGap = 155;
+
+      // Smaller, Nimbler Shima Enaga (~28% reduced size & hitbox)
+      const bird = {
+        x: 102,
+        y: BASE_GROUND_Y * 0.40,
+        vy: 0,
+        radius: 10, // Down from 14 (~29% smaller)
+        rotation: 0,
+        wingPhase: 0
+      };
+
+      // Procedural World Collections
+      let obstacles = [];
+      let snowParticles = [];
+      let caveSparkles = [];
+      let stars = [];
+      let glowworms = [];
+      let caveWallCrystals = []; // Multi-depth crystals (far, mid, near outcrops)
+      let rockTextureSpecs = []; // Pre-generated mineral/ice grain for cave walls
+      let flapParticles = [];
+
+      let lastFrameTime = 0;
+
+      // -----------------------------------------------------------------------
+      // Procedural Scenery & Multi-Depth Cave Initialization
+      // -----------------------------------------------------------------------
+      function initScenery() {
+        // Twinkling Arctic Stars
+        stars = [];
+        for (let i = 0; i < 68; i++) {
+          stars.push({
+            x: Math.random() * WORLD_W,
+            y: Math.random() * (BASE_GROUND_Y * 0.72),
+            r: 0.7 + Math.random() * 1.2,
+            phase: Math.random() * Math.PI * 2,
+            speed: 1.0 + Math.random() * 2.2
+          });
+        }
+
+        // Falling Snowflakes
+        snowParticles = [];
+        for (let i = 0; i < 62; i++) {
+          snowParticles.push({
+            x: Math.random() * WORLD_W,
+            y: Math.random() * WORLD_H,
+            r: 1.0 + Math.random() * 1.9,
+            vy: 0.45 + Math.random() * 1.05,
+            vx: -0.35 - Math.random() * 0.55,
+            sway: Math.random() * Math.PI * 2,
+            alpha: 0.35 + Math.random() * 0.5
+          });
+        }
+
+        // Subtle Cave Ice Dust Sparkles
+        caveSparkles = [];
+        for (let i = 0; i < 28; i++) {
+          caveSparkles.push({
+            x: Math.random() * WORLD_W,
+            y: 28 + Math.random() * (BASE_GROUND_Y - 60),
+            size: 1.0 + Math.random() * 1.8,
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.25 + Math.random() * 0.5
+          });
+        }
+
+        // Bioluminescent Ceiling Glowworms (Nighttime Cave)
+        glowworms = [];
+        for (let i = 0; i < 20; i++) {
+          glowworms.push({
+            x: (i / 20) * WORLD_W + Math.random() * 16,
+            length: 30 + Math.random() * 78,
+            beads: 3 + Math.floor(Math.random() * 5),
+            phase: Math.random() * Math.PI * 2
+          });
+        }
+
+        // Multi-Depth Glowing Crystals (0 = far dim wall, 1 = mid crevice, 2 = near rocky outcrop)
+        caveWallCrystals = [];
+        // Far wall small dim clusters
+        for (let i = 0; i < 7; i++) {
+          caveWallCrystals.push({
+            depth: 0,
+            x: i * 62 + Math.random() * 34,
+            y: 120 + Math.random() * 240,
+            scale: 0.38 + Math.random() * 0.22,
+            shards: 3,
+            tilt: (Math.random() - 0.5) * 0.5,
+            seed: Math.random() * 100
+          });
+        }
+        // Mid-ground crevice clusters
+        for (let i = 0; i < 6; i++) {
+          caveWallCrystals.push({
+            depth: 1,
+            x: i * 74 + Math.random() * 36,
+            y: 195 + Math.random() * 210,
+            scale: 0.62 + Math.random() * 0.28,
+            shards: 3 + (i % 2),
+            tilt: (Math.random() - 0.5) * 0.65,
+            seed: Math.random() * 100
+          });
+        }
+        // Occasional larger crystals perched on irregular near rocky outcrops (NOT lined up like grass)
+        for (let i = 0; i < 3; i++) {
+          caveWallCrystals.push({
+            depth: 2,
+            x: i * 165 + 40 + Math.random() * 55,
+            y: 0, // Dynamically anchored to rocky outcrop near terrain
+            scale: 0.92 + Math.random() * 0.35,
+            shards: 4,
+            tilt: (Math.random() - 0.5) * 0.3,
+            seed: Math.random() * 100
+          });
+        }
+
+        // Deterministic rocky/mineral noise flecks for stratified cave texture
+        rockTextureSpecs = [];
+        for (let i = 0; i < 110; i++) {
+          rockTextureSpecs.push({
+            x: Math.random() * WORLD_W,
+            y: Math.random() * WORLD_H,
+            w: 2 + Math.random() * 6,
+            h: 1 + Math.random() * 2.5,
+            light: Math.random() > 0.55,
+            depth: i % 3
+          });
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // Particle Emitters (Flap Snow/Feather Puffs)
+      // -----------------------------------------------------------------------
+      function spawnFlapPuff(x, y) {
+        for (let i = 0; i < 5; i++) {
+          flapParticles.push({
+            x: x - 7 + (Math.random() - 0.5) * 5,
+            y: y + 2 + (Math.random() - 0.5) * 5,
+            vx: -1.1 - Math.random() * 1.2,
+            vy: (Math.random() - 0.35) * 1.1,
+            size: 1.5 + Math.random() * 1.8,
+            alpha: 0.85,
+            decay: 0.03 + Math.random() * 0.018,
+            color: i % 2 === 0 ? '#e8eff5' : '#cbd8e1'
+          });
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // Dynamic Obstacle Spawners (Chrome Dino-Style Tree Clusters & Ice Spikes)
+      // -----------------------------------------------------------------------
+      function spawnPineCluster(startX) {
+        // Group 2 to 4 snow-covered pine trees tightly together (Chrome Dino rhythm)
+        const count = score < 2
+          ? 2
+          : (2 + Math.floor(Math.random() * 3)); // 2, 3, or 4 trees
+
+        const minPeak = 118;
+        const maxPeak = 285;
+        const lowP = Math.max(minPeak, lastClusterPeak - 115);
+        const highP = Math.min(maxPeak, lastClusterPeak + 115);
+        const peakHeight = lowP + Math.random() * (highP - lowP);
+        lastClusterPeak = peakHeight;
+
+        const trees = [];
+        let cursorX = 0;
+        let maxRight = 0;
+
+        for (let i = 0; i < count; i++) {
+          // Vary individual heights in the cluster so it forms a jagged skyline
+          const isTallest = (i === Math.floor(count / 2));
+          const hFactor = isTallest
+            ? (0.94 + Math.random() * 0.08)
+            : (0.58 + Math.random() * 0.34);
+          const height = clamp(peakHeight * hFactor, 86, 295);
+          const width = clamp(height * (0.30 + Math.random() * 0.11), 46, 94);
+          const trunkH = clamp(height * 0.13, 14, 28);
+          const tiers = 3 + Math.floor(Math.random() * 3); // 3 to 5 sharp polygonal tiers
+
+          trees.push({
+            relX: cursorX,
+            width,
+            height,
+            trunkH,
+            tiers,
+            seed: Math.random() * 1000
+          });
+
+          maxRight = Math.max(maxRight, cursorX + width);
+          // Tight overlap between trees in the cluster
+          cursorX += width * (0.46 + Math.random() * 0.18);
+        }
+
+        obstacles.push({
+          kind: 'PINE_CLUSTER',
+          x: startX,
+          width: maxRight,
+          trees,
+          passed: false
+        });
+
+        // Space next cluster based on current cluster width so jumps feel snappy & fair
+        nextSpawnGap = 112 + Math.random() * 62;
+        biomeObstaclesSpawned++;
+      }
+
+      function spawnCaveFormation(startX) {
+        const gap = PHYSICS.caveGapMin + Math.random() * (PHYSICS.caveGapMax - PHYSICS.caveGapMin);
+        const halfGap = gap / 2;
+        const groundAtSpawn = getGroundY(worldScrollX + startX + 35);
+        const minCenter = 86 + halfGap;
+        const maxCenter = groundAtSpawn - 78 - halfGap;
+
+        const lowC = Math.max(minCenter, lastCaveGapCenter - 120);
+        const highC = Math.min(maxCenter, lastCaveGapCenter + 120);
+        const gapCenter = lowC + Math.random() * (highC - lowC);
+        lastCaveGapCenter = gapCenter;
+
+        const topLen = gapCenter - halfGap;
+        const bottomLen = Math.max(54, groundAtSpawn - (gapCenter + halfGap));
+        const topWidth = 50 + Math.random() * 34;
+        const bottomWidth = 54 + Math.random() * 38;
+
+        obstacles.push({
+          kind: 'ICE_PAIR',
+          x: startX,
+          width: Math.max(topWidth, bottomWidth),
+          topWidth,
+          bottomWidth,
+          topLen,
+          bottomLen,
+          topSpikes: 2 + Math.floor(Math.random() * 3),
+          bottomSpikes: 2 + Math.floor(Math.random() * 3),
+          seed: Math.random() * 1000,
+          passed: false
+        });
+
+        nextSpawnGap = 135 + Math.random() * 58;
+        biomeObstaclesSpawned++;
+      }
+
+      // -----------------------------------------------------------------------
+      // Exact Circle-vs-Triangle & Circle-vs-Rect Collision Math
+      // -----------------------------------------------------------------------
+      function distToSegmentSq(px, py, x1, y1, x2, y2) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const lenSq = dx * dx + dy * dy;
+        if (lenSq === 0) return (px - x1) * (px - x1) + (py - y1) * (py - y1);
+        let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+        t = Math.max(0, Math.min(1, t));
+        const projX = x1 + t * dx;
+        const projY = y1 + t * dy;
+        return (px - projX) * (px - projX) + (py - projY) * (py - projY);
+      }
+
+      function pointInTriangle(px, py, x1, y1, x2, y2, x3, y3) {
+        const d1 = (px - x2) * (y1 - y2) - (x1 - x2) * (py - y2);
+        const d2 = (px - x3) * (y2 - y3) - (x2 - x3) * (py - y3);
+        const d3 = (px - x1) * (y3 - y1) - (x3 - x1) * (py - y1);
+        const hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+        const hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+        return !(hasNeg && hasPos);
+      }
+
+      function circleIntersectsTriangle(cx, cy, r, x1, y1, x2, y2, x3, y3) {
+        if (pointInTriangle(cx, cy, x1, y1, x2, y2, x3, y3)) return true;
+        const rSq = r * r;
+        if (distToSegmentSq(cx, cy, x1, y1, x2, y2) < rSq) return true;
+        if (distToSegmentSq(cx, cy, x2, y2, x3, y3) < rSq) return true;
+        if (distToSegmentSq(cx, cy, x3, y3, x1, y1) < rSq) return true;
+        return false;
+      }
+
+      function circleIntersectsRect(cx, cy, r, rx, ry, rw, rh) {
+        const closestX = Math.max(rx, Math.min(cx, rx + rw));
+        const closestY = Math.max(ry, Math.min(cy, ry + rh));
+        const dx = cx - closestX;
+        const dy = cy - closestY;
+        return (dx * dx + dy * dy) < (r * r);
+      }
+
+      function checkCollisions() {
+        // Undulating ground collision directly beneath the bird
+        const localGroundY = getGroundY(worldScrollX + bird.x);
+        if (bird.y + bird.radius >= localGroundY + 2) {
+          bird.y = localGroundY - bird.radius + 2;
+          return true;
+        }
+
+        // Soft top boundary clamp
+        if (bird.y - bird.radius < 4) {
+          bird.y = bird.radius + 4;
+          bird.vy = Math.max(0, bird.vy);
+        }
+
+        // Forgiving scaled-down hitbox inside the nimble Shima Enaga
+        const hitR = bird.radius - 2.4;
+
+        for (let i = 0; i < obstacles.length; i++) {
+          const ob = obstacles[i];
+
+          if (ob.kind === 'PINE_CLUSTER') {
+            for (let t = 0; t < ob.trees.length; t++) {
+              const tr = ob.trees[t];
+              const cx = ob.x + tr.relX + tr.width * 0.5;
+              const groundY = getGroundY(worldScrollX + cx);
+              const tipY = groundY - tr.height;
+              const baseCanopyY = groundY - tr.trunkH;
+
+              // Tapered conical hitbox inset slightly from sharp pine tips
+              if (circleIntersectsTriangle(
+                bird.x, bird.y, hitR,
+                cx, tipY + 10,
+                cx - tr.width * 0.37, baseCanopyY,
+                cx + tr.width * 0.37, baseCanopyY
+              )) {
+                return true;
+              }
+
+              const trunkW = Math.max(8, tr.width * 0.14);
+              if (circleIntersectsRect(bird.x, bird.y, hitR, cx - trunkW * 0.5, baseCanopyY, trunkW, tr.trunkH + 4)) {
+                return true;
+              }
+            }
+          } else if (ob.kind === 'ICE_PAIR') {
+            const cx = ob.x + ob.width * 0.5;
+            const groundY = getGroundY(worldScrollX + cx);
+
+            // Top Stalactite hitbox
+            if (circleIntersectsTriangle(
+              bird.x, bird.y, hitR,
+              cx - ob.topWidth * 0.40, 0,
+              cx + ob.topWidth * 0.40, 0,
+              cx, ob.topLen - 8
+            )) {
+              return true;
+            }
+
+            // Bottom Stalagmite hitbox anchored to undulating cave floor
+            const botTipY = groundY - ob.bottomLen;
+            if (circleIntersectsTriangle(
+              bird.x, bird.y, hitR,
+              cx, botTipY + 8,
+              cx - ob.bottomWidth * 0.40, groundY + 6,
+              cx + ob.bottomWidth * 0.40, groundY + 6
+            )) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+
+      // -----------------------------------------------------------------------
+      // Game Lifecycle & State Management
+      // -----------------------------------------------------------------------
+      function resetWorld() {
+        score = 0;
+        isNewBest = false;
+        obstacles = [];
+        flapParticles = [];
+
+        biome = BIOMES.OUTDOOR;
+        biomeObstaclesSpawned = 0;
+        nextBiomeQuota = 8 + Math.floor(Math.random() * 3);
+        transitionProgress = 0;
+
+        dayNightSeconds = 0;
+        nightFactor = 0;
+
+        blizzard.active = false;
+        blizzard.intensity = 0;
+        blizzard.remainingSec = 0;
+        blizzard.cooldownSec = 3;
+
+        flashAlpha = 0;
+        shakeTime = 0;
+        idleTime = 0;
+        lastClusterPeak = 170;
+        lastCaveGapCenter = BASE_GROUND_Y * 0.48;
+        nextSpawnGap = 155;
+
+        bird.x = 102;
+        bird.y = BASE_GROUND_Y * 0.40;
+        bird.vy = 0;
+        bird.rotation = 0;
+        bird.wingPhase = 0;
+
+        hudScoreEl.textContent = padScore(0);
+        hudBestEl.textContent = padScore(highScore);
+        updateStarsHUD(highScore);
+        updateBiomeHUD();
+        phaseBannerEl.classList.remove('visible');
+      }
+
+      function enterReadyState() {
+        resetWorld();
+        gameState = STATES.READY;
+        startOverlay.classList.remove('hidden');
+        pauseOverlay.classList.add('hidden');
+        gameOverOverlay.classList.add('hidden');
+        updatePauseButtonUI();
+      }
+
+      function startGameAndFlap() {
+        resetWorld();
+        gameState = STATES.PLAYING;
+        startOverlay.classList.add('hidden');
+        pauseOverlay.classList.add('hidden');
+        gameOverOverlay.classList.add('hidden');
+
+        spawnPineCluster(WORLD_W + 70);
+        performFlap();
+        updatePauseButtonUI();
+      }
+
+      function performFlap() {
+        bird.vy = PHYSICS.jumpVelocity;
+        bird.wingPhase = Math.PI;
+        spawnFlapPuff(bird.x, bird.y);
+        SoundFX.playFlap();
+      }
+
+      function togglePause() {
+        if (gameState === STATES.PLAYING) {
+          gameState = STATES.PAUSED;
+          pauseOverlay.classList.remove('hidden');
+          updatePauseButtonUI();
+        } else if (gameState === STATES.PAUSED) {
+          gameState = STATES.PLAYING;
+          pauseOverlay.classList.add('hidden');
+          lastFrameTime = performance.now();
+          updatePauseButtonUI();
+        }
+      }
+
+      function updatePauseButtonUI() {
+        if (gameState === STATES.PAUSED) {
+          pauseLabel.textContent = '▶ RESUME';
+          pauseToggleBtn.classList.add('active-state');
+        } else {
+          pauseLabel.textContent = '⏸ PAUSE';
+          pauseToggleBtn.classList.remove('active-state');
+        }
+      }
+
+      function triggerGameOver() {
+        if (gameState === STATES.GAME_OVER) return;
+
+        gameState = STATES.GAME_OVER;
+        gameOverTimestamp = performance.now();
+        flashAlpha = 0.72;
+        shakeTime = 14;
+        SoundFX.playHit();
+
+        if (score > highScore) {
+          highScore = score;
+          isNewBest = true;
+          saveHighScore(highScore);
+          hudBestEl.textContent = padScore(highScore);
+          updateStarsHUD(highScore);
+        }
+
+        finalScoreEl.textContent = padScore(score);
+        finalBestEl.textContent = padScore(highScore);
+        newRecordTagEl.style.display = isNewBest ? 'inline-block' : 'none';
+
+        const biomeNames = {
+          [BIOMES.OUTDOOR]: blizzard.intensity > 0.35 ? 'BLIZZARD RIDGE' : (nightFactor > 0.55 ? 'AURORA FOREST' : 'SNOWY FOREST'),
+          [BIOMES.CAVE]: nightFactor > 0.55 ? 'DEEP CRYSTAL CAVE' : 'GLACIAL CAVERN',
+          [BIOMES.TRANSITION_IN]: 'CAVERN ENTRANCE',
+          [BIOMES.TRANSITION_OUT]: 'CAVERN EXIT'
+        };
+        finalBiomeLabelEl.textContent = biomeNames[biome] || 'ARCTIC SKIES';
+        updateRankBadge(score);
+
+        gameOverOverlay.classList.remove('hidden');
+        updatePauseButtonUI();
+      }
+
+      function updateRankBadge(currentScore) {
+        rankBadgeEl.classList.toggle('earned', currentScore >= 5);
+        if (currentScore >= 50) {
+          rankBadgeEl.textContent = '★★★★ NORTH SPIRIT';
+        } else if (currentScore >= 30) {
+          rankBadgeEl.textContent = '★★★ AURORA ACE';
+        } else if (currentScore >= 15) {
+          rankBadgeEl.textContent = '★★ GLACIER RANGER';
+        } else if (currentScore >= 5) {
+          rankBadgeEl.textContent = '★ FROST SCOUT';
+        } else {
+          rankBadgeEl.textContent = 'RANK: FLEDGLING';
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // Simulation Update (Delta-Time Normalized to 60 FPS)
+      // -----------------------------------------------------------------------
+      function update(dt) {
+        const dtSec = dt / 60;
+        worldTime += dtSec;
+
+        // Progressive horizontal speed scaling during active play (1.0x -> 2.0x)
+        const speedMultiplier = score < 20
+          ? 1.0
+          : Math.min(2.0, Number((1.1 + Math.floor((score - 20) / 5) * 0.1).toFixed(1)));
+        const currentScrollSpeed = gameState === STATES.PLAYING
+          ? PHYSICS.scrollSpeed * speedMultiplier
+          : PHYSICS.scrollSpeed;
+
+        if (flashAlpha > 0) flashAlpha = Math.max(0, flashAlpha - 0.055 * dt);
+        if (shakeTime > 0) shakeTime = Math.max(0, shakeTime - dt);
+
+        // Update flap snow puffs
+        for (let i = flapParticles.length - 1; i >= 0; i--) {
+          const p = flapParticles[i];
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.alpha -= p.decay * dt;
+          if (p.alpha <= 0) flapParticles.splice(i, 1);
+        }
+
+        // Ambient snow & cave dust
+        if (gameState !== STATES.PAUSED) {
+          const stormBoost = 1 + blizzard.intensity * 4.0;
+          for (let i = 0; i < snowParticles.length; i++) {
+            const s = snowParticles[i];
+            s.sway += 0.03 * dt;
+            s.y += s.vy * (1 + blizzard.intensity * 1.45) * dt;
+            s.x += (s.vx * stormBoost + Math.sin(s.sway) * 0.25) * dt;
+            if (s.y > WORLD_H + 6) {
+              s.y = -6;
+              s.x = Math.random() * (WORLD_W + 90);
+            }
+            if (s.x < -12) s.x = WORLD_W + 12;
+          }
+
+          for (let i = 0; i < caveSparkles.length; i++) {
+            const sp = caveSparkles[i];
+            sp.phase += 0.04 * dt;
+            sp.x -= sp.speed * dt;
+            if (sp.x < -8) {
+              sp.x = WORLD_W + 8;
+              sp.y = 26 + Math.random() * (BASE_GROUND_Y - 56);
+            }
+          }
+        }
+
+        // Advance continuous world distance in READY & PLAYING
+        if (gameState === STATES.READY) {
+          worldScrollX += PHYSICS.scrollSpeed * dt;
+        } else if (gameState === STATES.PLAYING) {
+          worldScrollX += currentScrollSpeed * dt;
+        }
+
+        if (gameState === STATES.READY) {
+          idleTime += 0.075 * dt;
+          bird.y = BASE_GROUND_Y * 0.40 + Math.sin(idleTime) * 6.5;
+          bird.rotation = Math.sin(idleTime) * 0.06;
+          bird.wingPhase += 0.22 * dt;
+          return;
+        }
+
+        if (gameState === STATES.PAUSED) return;
+
+        if (gameState === STATES.GAME_OVER) {
+          const localGroundY = getGroundY(worldScrollX + bird.x);
+          if (bird.y + bird.radius < localGroundY + 2) {
+            bird.vy = Math.min(PHYSICS.maxFallSpeed + 1.5, bird.vy + PHYSICS.gravity * 1.1 * dt);
+            bird.y = Math.min(localGroundY - bird.radius + 2, bird.y + bird.vy * dt);
+            bird.rotation = Math.min(Math.PI / 2.2, bird.rotation + 0.14 * dt);
+          }
+          return;
+        }
+
+        // --- PLAYING STATE ---
+
+        // 1. Smooth Day / Night Cycle
+        dayNightSeconds += dtSec;
+        nightFactor = 0.5 - 0.5 * Math.cos((dayNightSeconds / PHYSICS.dayNightCycleSeconds) * Math.PI * 2);
+
+        // 2. Random Blizzard / Snowstorm Event (20+ points, Outdoor only)
+        blizzard.windPhase += 0.045 * dt;
+        if (biome === BIOMES.OUTDOOR && score >= 20) {
+          if (blizzard.active) {
+            blizzard.remainingSec -= dtSec;
+            blizzard.intensity = Math.min(1, blizzard.intensity + dtSec * 0.40);
+            if (blizzard.remainingSec <= 0) {
+              blizzard.active = false;
+              blizzard.cooldownSec = 14 + Math.random() * 10;
+              showPhaseBanner('SKIES CLEARING');
+            }
+          } else {
+            blizzard.intensity = Math.max(0, blizzard.intensity - dtSec * 0.42);
+            blizzard.cooldownSec -= dtSec;
+            if (blizzard.cooldownSec <= 0 && Math.random() < 0.25 * dtSec) {
+              blizzard.active = true;
+              blizzard.remainingSec = 10 + Math.random() * 5;
+              showPhaseBanner('SNOWSTORM APPROACHING');
+            }
+          }
+        } else {
+          blizzard.active = false;
+          blizzard.intensity = Math.max(0, blizzard.intensity - dtSec * 0.85);
+        }
+
+        updateBiomeHUD();
+
+        // 3. Shima Enaga Physics + Subtle Blizzard Wind Gust
+        const windGust = blizzard.intensity > 0.05
+          ? Math.sin(blizzard.windPhase * 1.65) * 0.048 * blizzard.intensity
+          : 0;
+        bird.vy = clamp(bird.vy + (PHYSICS.gravity + windGust) * dt, -9.2, PHYSICS.maxFallSpeed);
+        bird.y += bird.vy * dt;
+
+        const targetRot = bird.vy < 0
+          ? -0.36
+          : Math.min(Math.PI / 2.3, (bird.vy / PHYSICS.maxFallSpeed) * 1.15);
+        bird.rotation += (targetRot - bird.rotation) * Math.min(1, (bird.vy < 0 ? 0.26 : 0.11) * dt);
+        bird.wingPhase += (bird.vy < 1.8 ? 0.38 : 0.15) * dt;
+
+        // 4. Obstacle-Free Foreground Cave Archway Transition
+        if (biome === BIOMES.TRANSITION_IN || biome === BIOMES.TRANSITION_OUT) {
+          transitionProgress += dt / TRANSITION_DURATION;
+          if (transitionProgress >= 1) {
+            transitionProgress = 0;
+            biomeObstaclesSpawned = 0;
+            if (biome === BIOMES.TRANSITION_IN) {
+              biome = BIOMES.CAVE;
+              nextBiomeQuota = 8 + Math.floor(Math.random() * 4);
+              spawnCaveFormation(WORLD_W + 60);
+            } else {
+              biome = BIOMES.OUTDOOR;
+              nextBiomeQuota = 8 + Math.floor(Math.random() * 4);
+              spawnPineCluster(WORLD_W + 60);
+            }
+          }
+        }
+
+        // 5. Move Obstacles, Silent Score Increment & Next Spawn
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+          const ob = obstacles[i];
+          ob.x -= currentScrollSpeed * dt;
+
+          const passX = ob.x + ob.width * 0.55;
+          if (!ob.passed && passX < bird.x) {
+            ob.passed = true;
+            score += 1;
+            hudScoreEl.textContent = padScore(score);
+            hudScoreEl.classList.add('score-pop');
+            setTimeout(() => hudScoreEl.classList.remove('score-pop'), 180);
+
+            if (score > highScore) {
+              hudBestEl.textContent = padScore(score);
+              updateStarsHUD(score);
+            }
+            // Individual score chime intentionally removed for cleaner atmosphere
+          }
+
+          if (ob.x + ob.width < -60) {
+            obstacles.splice(i, 1);
+          }
+        }
+
+        // Spawn next obstacle cluster or trigger Cave Entrance transition
+        if (biome === BIOMES.OUTDOOR || biome === BIOMES.CAVE) {
+          const lastOb = obstacles[obstacles.length - 1];
+          const rightEdge = lastOb ? (lastOb.x + lastOb.width) : -999;
+          const readyForNext = !lastOb || (WORLD_W - rightEdge >= nextSpawnGap);
+
+          if (readyForNext) {
+            if (biomeObstaclesSpawned >= nextBiomeQuota) {
+              biome = biome === BIOMES.OUTDOOR ? BIOMES.TRANSITION_IN : BIOMES.TRANSITION_OUT;
+              transitionProgress = 0;
+              showPhaseBanner(biome === BIOMES.TRANSITION_IN ? 'ENTERING GLACIAL CAVE' : 'LEAVING GLACIAL CAVE');
+            } else if (biome === BIOMES.OUTDOOR) {
+              spawnPineCluster(WORLD_W + 24);
+            } else {
+              spawnCaveFormation(WORLD_W + 24);
+            }
+          }
+        }
+
+        // 6. Collision Detection
+        if (checkCollisions()) {
+          triggerGameOver();
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // OUTDOOR RENDERING — DESATURATED SKY, AURORA & 4-LAYER PARALLAX FOREST
+      // -----------------------------------------------------------------------
+      function drawAuroraBorealis(alpha) {
+        if (alpha <= 0.02) return;
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+
+        const ribbons = [
+          { yBase: 108, amp: 20, freq: 0.011, speed: 0.65, c1: '#3ea88a', c2: '#4ea8b8', height: 100, op: 0.42 },
+          { yBase: 152, amp: 26, freq: 0.009, speed: 0.45, c1: '#4998b0', c2: '#3b6ea5', height: 92,  op: 0.34 }
+        ];
+
+        for (let r = 0; r < ribbons.length; r++) {
+          const rb = ribbons[r];
+          const cols = 24;
+          const colW = WORLD_W / cols;
+
+          for (let c = 0; c <= cols; c++) {
+            const x = c * colW;
+            const wave = Math.sin(x * rb.freq + worldTime * rb.speed + r * 1.9) * rb.amp
+                       + Math.cos(x * rb.freq * 1.7 - worldTime * rb.speed * 0.6) * (rb.amp * 0.4);
+            const yBot = rb.yBase + wave + 30;
+            const yTop = yBot - rb.height - Math.sin(c * 0.4 + worldTime) * 16;
+
+            const grad = ctx.createLinearGradient(x, yTop, x, yBot);
+            grad.addColorStop(0, 'rgba(62, 168, 138, 0)');
+            grad.addColorStop(0.5, lerpRgba(rb.c1, rb.c2, (Math.sin(c * 0.3 + worldTime) + 1) * 0.5, rb.op * alpha));
+            grad.addColorStop(1, 'rgba(62, 168, 138, 0)');
+
+            ctx.fillStyle = grad;
+            ctx.fillRect(x - 3, yTop, colW + 7, yBot - yTop);
+          }
+        }
+        ctx.restore();
+      }
+
+      // Reusable angular silhouette pine-treeline layer for 4-layer parallax depth
+      function drawParallaxForestLayer(scrollFactor, baseY, minH, maxH, spacing, dayHex, nightHex, seedOffset) {
+        const nf = nightFactor;
+        const offset = (worldScrollX * scrollFactor) % WORLD_W;
+        ctx.fillStyle = lerpColor(dayHex, nightHex, nf);
+
+        for (let pass = 0; pass < 2; pass++) {
+          const ox = pass * WORLD_W - offset;
+          ctx.beginPath();
+          ctx.moveTo(ox, WORLD_H);
+
+          for (let x = 0; x <= WORLD_W + spacing; x += spacing) {
+            const idx = Math.floor(x / spacing) + seedOffset;
+            const h = minH + hash1D(idx * 1.7) * (maxH - minH);
+            const halfW = spacing * (0.58 + hash1D(idx * 3.1) * 0.28);
+            const tipX = ox + x;
+            const tipY = baseY - h;
+
+            // Sharp 2-tier polygonal conifer silhouette
+            ctx.lineTo(tipX - halfW, baseY);
+            ctx.lineTo(tipX - halfW * 0.52, tipY + h * 0.46);
+            ctx.lineTo(tipX - halfW * 0.68, tipY + h * 0.48);
+            ctx.lineTo(tipX, tipY);
+            ctx.lineTo(tipX + halfW * 0.68, tipY + h * 0.48);
+            ctx.lineTo(tipX + halfW * 0.52, tipY + h * 0.46);
+            ctx.lineTo(tipX + halfW, baseY);
+          }
+
+          ctx.lineTo(ox + WORLD_W + spacing, WORLD_H);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      function drawOutdoorBackground() {
+        const nf = nightFactor;
+
+        // Desaturated, Smooth Atmospheric Multi-Stop Sky Gradient
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, BASE_GROUND_Y);
+        skyGrad.addColorStop(0, lerpColor('#3c5870', '#070b14', nf));
+        skyGrad.addColorStop(0.42, lerpColor('#6b8a9e', '#0f1c2b', nf));
+        skyGrad.addColorStop(0.78, lerpColor('#a8c0cf', '#162c3a', nf));
+        skyGrad.addColorStop(1, lerpColor('#d3e0e8', '#1e3a46', nf));
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+
+        // Soft Winter Sun (Day)
+        if (nf < 0.8) {
+          const sunAlpha = clamp(1 - nf * 1.4, 0, 1);
+          const sunX = 308;
+          const sunY = 88 + nf * 55;
+          const sunGlow = ctx.createRadialGradient(sunX, sunY, 6, sunX, sunY, 64);
+          sunGlow.addColorStop(0, `rgba(244, 248, 250, ${0.82 * sunAlpha})`);
+          sunGlow.addColorStop(0.4, `rgba(211, 224, 232, ${0.32 * sunAlpha})`);
+          sunGlow.addColorStop(1, 'rgba(211, 224, 232, 0)');
+          ctx.fillStyle = sunGlow;
+          ctx.beginPath();
+          ctx.arc(sunX, sunY, 64, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Stars, Pale Moon & Muted Aurora (Night)
+        if (nf > 0.16) {
+          const nightVis = clamp((nf - 0.16) / 0.84, 0, 1);
+
+          for (let i = 0; i < stars.length; i++) {
+            const st = stars[i];
+            const tw = 0.4 + 0.6 * Math.sin(worldTime * st.speed + st.phase);
+            ctx.fillStyle = `rgba(232, 239, 245, ${nightVis * tw * 0.85})`;
+            ctx.fillRect(Math.round(st.x), Math.round(st.y), st.r, st.r);
+          }
+
+          drawAuroraBorealis(nightVis);
+
+          const moonX = 78;
+          const moonY = 84;
+          const moonHalo = ctx.createRadialGradient(moonX, moonY, 8, moonX, moonY, 54);
+          moonHalo.addColorStop(0, `rgba(235, 242, 247, ${0.88 * nightVis})`);
+          moonHalo.addColorStop(0.35, `rgba(157, 183, 202, ${0.28 * nightVis})`);
+          moonHalo.addColorStop(1, 'rgba(157, 183, 202, 0)');
+          ctx.fillStyle = moonHalo;
+          ctx.beginPath();
+          ctx.arc(moonX, moonY, 54, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = `rgba(240, 245, 249, ${nightVis})`;
+          ctx.beginPath();
+          ctx.arc(moonX, moonY, 14, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // LAYER 1 (Far): Sharp Angular Polygonal Mountain Range with Lit/Shaded Facets
+        const mtnScroll = (worldScrollX * 0.08) % WORLD_W;
+        for (let pass = 0; pass < 2; pass++) {
+          const ox = pass * WORLD_W - mtnScroll;
+          const peaks = [
+            { x: 0, y: 405 }, { x: 64, y: 295 }, { x: 128, y: 372 },
+            { x: 215, y: 258 }, { x: 292, y: 356 }, { x: 352, y: 302 }, { x: 400, y: 405 }
+          ];
+
+          // Main shaded mountain mass
+          ctx.fillStyle = lerpColor('#8ca3b5', '#112230', nf);
+          ctx.beginPath();
+          ctx.moveTo(ox, WORLD_H);
+          for (let p = 0; p < peaks.length; p++) {
+            ctx.lineTo(ox + peaks[p].x, peaks[p].y);
+          }
+          ctx.lineTo(ox + WORLD_W, WORLD_H);
+          ctx.closePath();
+          ctx.fill();
+
+          // Angular sunlit/moonlit left-facing snow facets on major peaks
+          ctx.fillStyle = lerpColor('#cfdce6', '#284154', nf);
+          const litPeaks = [
+            [64, 295, 36, 358, 76, 344],
+            [215, 258, 174, 348, 224, 326],
+            [352, 302, 324, 352, 360, 342]
+          ];
+          for (let f = 0; f < litPeaks.length; f++) {
+            const fp = litPeaks[f];
+            ctx.beginPath();
+            ctx.moveTo(ox + fp[0], fp[1]);
+            ctx.lineTo(ox + fp[2], fp[3]);
+            ctx.lineTo(ox + fp[4], fp[5]);
+            ctx.closePath();
+            ctx.fill();
+          }
+        }
+
+        // LAYER 2 (Far-Mid): Pale Misty Pine Forest Silhouettes
+        drawParallaxForestLayer(0.16, BASE_GROUND_Y - 12, 42, 92, 22, '#9bb2c2', '#122533', 10);
+
+        // LAYER 3 (Mid): Muted Slate-Evergreen Pine Forest Silhouettes
+        drawParallaxForestLayer(0.28, BASE_GROUND_Y + 2, 38, 84, 26, '#6e8799', '#0d1d29', 47);
+
+        // LAYER 4 (Near-Mid): Deeper, Sharper Foreground-Backing Pine Layer
+        drawParallaxForestLayer(0.45, BASE_GROUND_Y + 14, 30, 70, 30, '#496173', '#09141d', 93);
+      }
+
+      // Undulating Polygonal Outdoor Snow Terrain
+      function drawOutdoorGround() {
+        const nf = nightFactor;
+        const step = 16;
+
+        // Main snow body following continuous terrain height
+        const snowGrad = ctx.createLinearGradient(0, BASE_GROUND_Y - 20, 0, WORLD_H);
+        snowGrad.addColorStop(0, lerpColor('#e6eef4', '#5b7285', nf));
+        snowGrad.addColorStop(0.32, lerpColor('#c2d3df', '#2d3f4f', nf));
+        snowGrad.addColorStop(1, lerpColor('#8ea5b8', '#101b26', nf));
+
+        ctx.fillStyle = snowGrad;
+        ctx.beginPath();
+        ctx.moveTo(0, WORLD_H);
+        for (let x = 0; x <= WORLD_W + step; x += step) {
+          ctx.lineTo(x, getGroundY(worldScrollX + x));
+        }
+        ctx.lineTo(WORLD_W, WORLD_H);
+        ctx.closePath();
+        ctx.fill();
+
+        // Crisp angular top snow crust highlight strip
+        ctx.strokeStyle = lerpColor('#f8fafc', '#8ca4b8', nf);
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (let x = 0; x <= WORLD_W + step; x += step) {
+          const gy = getGroundY(worldScrollX + x);
+          if (x === 0) ctx.moveTo(x, gy + 1);
+          else ctx.lineTo(x, gy + 1);
+        }
+        ctx.stroke();
+
+        // Stratified angular snow-drift shadow band underneath
+        ctx.fillStyle = lerpRgba('#6d8699', '#070e17', nf, 0.32);
+        ctx.beginPath();
+        ctx.moveTo(0, WORLD_H);
+        for (let x = 0; x <= WORLD_W + step; x += step) {
+          ctx.lineTo(x, getGroundY(worldScrollX + x) + 26 + Math.sin((worldScrollX + x) * 0.03) * 4);
+        }
+        ctx.lineTo(WORLD_W, WORLD_H);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // -----------------------------------------------------------------------
+      // INDOOR RENDERING — STRATIFIED, TEXTURED ICE CAVE & MULTI-DEPTH CRYSTALS
+      // -----------------------------------------------------------------------
+      function drawCrystalCluster(cx, cy, scale, shards, tilt, depth, seed) {
+        const nf = nightFactor;
+        // Far crystals are dimmer; mid & near crystals brighten notably at night
+        const depthVis = depth === 0 ? 0.36 : (depth === 1 ? 0.68 : 1.0);
+        const glowBoost = (0.18 + nf * 0.82) * depthVis;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(tilt);
+
+        // Soft radial bioluminescent/glacial crystal light
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const rad = ctx.createRadialGradient(0, -10 * scale, 1, 0, -10 * scale, 38 * scale);
+        rad.addColorStop(0, `rgba(186, 230, 245, ${0.65 * glowBoost})`);
+        rad.addColorStop(0.45, `rgba(78, 168, 198, ${0.32 * glowBoost})`);
+        rad.addColorStop(1, 'rgba(30, 75, 98, 0)');
+        ctx.fillStyle = rad;
+        ctx.beginPath();
+        ctx.arc(0, -10 * scale, 38 * scale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Sharp polygonal crystal prisms
+        for (let s = 0; s < shards; s++) {
+          const angle = (s - (shards - 1) * 0.5) * 0.36;
+          const h = (16 + hash1D(seed + s * 4.3) * 14) * scale;
+          const w = (4.2 + (s % 2) * 1.6) * scale;
+
+          ctx.save();
+          ctx.translate((s - (shards - 1) * 0.5) * 4.5 * scale, 0);
+          ctx.rotate(angle);
+
+          // Left lit facet
+          ctx.fillStyle = lerpRgba('#8ec5db', '#56b8cc', nf * 0.6, 0.55 + depthVis * 0.4);
+          ctx.beginPath();
+          ctx.moveTo(0, -h);
+          ctx.lineTo(-w, -h * 0.3);
+          ctx.lineTo(-w * 0.6, 2);
+          ctx.lineTo(0, 2);
+          ctx.closePath();
+          ctx.fill();
+
+          // Right shaded facet
+          ctx.fillStyle = lerpRgba('#2d6b87', '#1a4961', nf * 0.5, 0.6 + depthVis * 0.35);
+          ctx.beginPath();
+          ctx.moveTo(0, -h);
+          ctx.lineTo(w, -h * 0.3);
+          ctx.lineTo(w * 0.6, 2);
+          ctx.lineTo(0, 2);
+          ctx.closePath();
+          ctx.fill();
+
+          // Specular ridge
+          ctx.strokeStyle = `rgba(232, 244, 250, ${0.45 + glowBoost * 0.45})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, -h);
+          ctx.lineTo(0, 0);
+          ctx.stroke();
+
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+
+      function drawCaveBackground() {
+        const nf = nightFactor;
+
+        // Desaturated Glacial Slate-Blue (Day) -> Deep Charcoal-Teal (Night)
+        const caveGrad = ctx.createLinearGradient(0, 0, 0, WORLD_H);
+        caveGrad.addColorStop(0, lerpColor('#172d3d', '#040810', nf));
+        caveGrad.addColorStop(0.45, lerpColor('#254659', '#091521', nf));
+        caveGrad.addColorStop(1, lerpColor('#355d70', '#102230', nf));
+        ctx.fillStyle = caveGrad;
+        ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+
+        // DEPTH LAYER 1 (Far): Stratified Angular Ice-Rock Cavern Walls & Diagonal Geological Seams
+        const farScroll = (worldScrollX * 0.12) % WORLD_W;
+        for (let pass = 0; pass < 2; pass++) {
+          const ox = pass * WORLD_W - farScroll;
+
+          // Craggy polygonal far ceiling strata
+          ctx.fillStyle = lerpColor('#132533', '#050c14', nf);
+          ctx.beginPath();
+          ctx.moveTo(ox, 0);
+          ctx.lineTo(ox, 88);
+          ctx.lineTo(ox + 68, 124);
+          ctx.lineTo(ox + 135, 76);
+          ctx.lineTo(ox + 218, 134);
+          ctx.lineTo(ox + 305, 84);
+          ctx.lineTo(ox + WORLD_W, 88);
+          ctx.lineTo(ox + WORLD_W, 0);
+          ctx.closePath();
+          ctx.fill();
+
+          // Stratified diagonal ice-rock bands in deep background
+          ctx.fillStyle = lerpRgba('#2e5368', '#0c1c29', nf, 0.42);
+          ctx.beginPath();
+          ctx.moveTo(ox, 175);
+          ctx.lineTo(ox + 150, 145);
+          ctx.lineTo(ox + 280, 195);
+          ctx.lineTo(ox + WORLD_W, 175);
+          ctx.lineTo(ox + WORLD_W, 245);
+          ctx.lineTo(ox + 250, 268);
+          ctx.lineTo(ox + 115, 225);
+          ctx.lineTo(ox, 245);
+          ctx.closePath();
+          ctx.fill();
+
+          // Crevice fracture lines
+          ctx.strokeStyle = lerpRgba('#0c1b26', '#02050a', nf, 0.55);
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(ox + 42, 120);
+          ctx.lineTo(ox + 95, 195);
+          ctx.lineTo(ox + 82, 275);
+          ctx.moveTo(ox + 240, 130);
+          ctx.lineTo(ox + 268, 220);
+          ctx.lineTo(ox + 232, 310);
+          ctx.stroke();
+        }
+
+        // Far-Wall Embedded Dim Crystals (Depth 0)
+        for (let i = 0; i < caveWallCrystals.length; i++) {
+          const cr = caveWallCrystals[i];
+          if (cr.depth !== 0) continue;
+          const cx = ((cr.x - worldScrollX * 0.14) % WORLD_W + WORLD_W) % WORLD_W;
+          drawCrystalCluster(cx, cr.y, cr.scale, cr.shards, cr.tilt, 0, cr.seed);
+        }
+
+        // DEPTH LAYER 2 (Mid): Craggy Polygonal Rock Ledges & Crevices
+        const midScroll = (worldScrollX * 0.28) % WORLD_W;
+        for (let pass = 0; pass < 2; pass++) {
+          const ox = pass * WORLD_W - midScroll;
+
+          // Angular mid-ground cavern ribs / buttresses
+          ctx.fillStyle = lerpRgba('#1b3747', '#081520', nf, 0.72);
+          ctx.beginPath();
+          ctx.moveTo(ox + 35, 0);
+          ctx.lineTo(ox + 68, 175);
+          ctx.lineTo(ox + 48, 355);
+          ctx.lineTo(ox + 88, WORLD_H);
+          ctx.lineTo(ox + 12, WORLD_H);
+          ctx.lineTo(ox + 22, 290);
+          ctx.lineTo(ox + 5, 145);
+          ctx.closePath();
+          ctx.fill();
+
+          // Mid-ground craggy rocky ledges near lower walls
+          ctx.fillStyle = lerpColor('#1d3b4d', '#0a1926', nf);
+          ctx.beginPath();
+          ctx.moveTo(ox, WORLD_H);
+          ctx.lineTo(ox, BASE_GROUND_Y - 46);
+          ctx.lineTo(ox + 62, BASE_GROUND_Y - 94);
+          ctx.lineTo(ox + 122, BASE_GROUND_Y - 58);
+          ctx.lineTo(ox + 188, BASE_GROUND_Y - 108);
+          ctx.lineTo(ox + 258, BASE_GROUND_Y - 62);
+          ctx.lineTo(ox + 332, BASE_GROUND_Y - 82);
+          ctx.lineTo(ox + WORLD_W, BASE_GROUND_Y - 46);
+          ctx.lineTo(ox + WORLD_W, WORLD_H);
+          ctx.closePath();
+          ctx.fill();
+
+          // Sharp ice-strata edge highlights on rock ledges
+          ctx.strokeStyle = lerpRgba('#7fa6bc', '#2a566e', nf, 0.35);
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(ox + 62, BASE_GROUND_Y - 94);
+          ctx.lineTo(ox + 122, BASE_GROUND_Y - 58);
+          ctx.lineTo(ox + 188, BASE_GROUND_Y - 108);
+          ctx.lineTo(ox + 258, BASE_GROUND_Y - 62);
+          ctx.stroke();
+        }
+
+        // Procedural Rocky / Mineral Surface Texture Specks
+        for (let i = 0; i < rockTextureSpecs.length; i++) {
+          const sp = rockTextureSpecs[i];
+          const spd = sp.depth === 0 ? 0.12 : (sp.depth === 1 ? 0.28 : 0.45);
+          const sx = ((sp.x - worldScrollX * spd) % WORLD_W + WORLD_W) % WORLD_W;
+          ctx.fillStyle = sp.light
+            ? lerpRgba('#9ab8c9', '#30576b', nf, 0.16)
+            : lerpRgba('#0b1721', '#02050a', nf, 0.28);
+          ctx.fillRect(sx, sp.y, sp.w, sp.h);
+        }
+
+        // Mid-Ground Crevice Glowing Crystals (Depth 1)
+        for (let i = 0; i < caveWallCrystals.length; i++) {
+          const cr = caveWallCrystals[i];
+          if (cr.depth !== 1) continue;
+          const cx = ((cr.x - worldScrollX * 0.28) % WORLD_W + WORLD_W) % WORLD_W;
+          drawCrystalCluster(cx, cr.y, cr.scale, cr.shards, cr.tilt, 1, cr.seed);
+        }
+
+        // Occasional Larger Crystals on Near Irregular Rocky Outcrops (Depth 2)
+        for (let i = 0; i < caveWallCrystals.length; i++) {
+          const cr = caveWallCrystals[i];
+          if (cr.depth !== 2) continue;
+          const span = WORLD_W + 140;
+          const cx = ((cr.x - worldScrollX * 0.58) % span + span) % span - 70;
+          const outcropY = BASE_GROUND_Y - 22 - (hash1D(cr.seed) * 18);
+
+          // Small angular rocky outcrop pedestal
+          ctx.fillStyle = lerpColor('#152c3b', '#07131d', nf);
+          ctx.beginPath();
+          ctx.moveTo(cx - 26, WORLD_H);
+          ctx.lineTo(cx - 18, outcropY + 4);
+          ctx.lineTo(cx, outcropY - 4);
+          ctx.lineTo(cx + 20, outcropY + 6);
+          ctx.lineTo(cx + 30, WORLD_H);
+          ctx.closePath();
+          ctx.fill();
+
+          drawCrystalCluster(cx, outcropY, cr.scale, cr.shards, cr.tilt, 2, cr.seed);
+        }
+
+        // Bioluminescent Ceiling Glowworms (Nighttime Cave)
+        if (nf > 0.22) {
+          const glowAlpha = clamp((nf - 0.22) / 0.78, 0, 1);
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+
+          for (let i = 0; i < glowworms.length; i++) {
+            const gw = glowworms[i];
+            const gx = ((gw.x - worldScrollX * 0.22) % WORLD_W + WORLD_W) % WORLD_W;
+            const pulse = 0.65 + 0.35 * Math.sin(worldTime * 2.2 + gw.phase);
+
+            const tGrad = ctx.createLinearGradient(gx, 0, gx, gw.length);
+            tGrad.addColorStop(0, `rgba(92, 206, 214, ${0.78 * glowAlpha * pulse})`);
+            tGrad.addColorStop(0.7, `rgba(74, 178, 170, ${0.34 * glowAlpha * pulse})`);
+            tGrad.addColorStop(1, 'rgba(74, 178, 170, 0)');
+            ctx.strokeStyle = tGrad;
+            ctx.lineWidth = 1.1;
+            ctx.beginPath();
+            ctx.moveTo(gx, 0);
+            ctx.lineTo(gx, gw.length);
+            ctx.stroke();
+
+            ctx.fillStyle = `rgba(210, 240, 248, ${0.85 * glowAlpha * pulse})`;
+            for (let b = 1; b <= gw.beads; b++) {
+              const by = (gw.length / (gw.beads + 1)) * b;
+              ctx.fillRect(gx - 0.8, by - 0.8, 1.6, 1.6);
+            }
+          }
+          ctx.restore();
+        }
+
+        // Subtle Ice Dust Sparkles
+        for (let i = 0; i < caveSparkles.length; i++) {
+          const sp = caveSparkles[i];
+          const tw = 0.25 + 0.75 * Math.abs(Math.sin(sp.phase));
+          ctx.fillStyle = `rgba(214, 232, 242, ${tw * (0.42 + nf * 0.35)})`;
+          ctx.fillRect(sp.x, sp.y, sp.size, sp.size);
+        }
+      }
+
+      // Undulating Stratified Rocky-Ice Cave Floor
+      function drawCaveGround() {
+        const nf = nightFactor;
+        const step = 16;
+
+        const floorGrad = ctx.createLinearGradient(0, BASE_GROUND_Y - 20, 0, WORLD_H);
+        floorGrad.addColorStop(0, lerpColor('#527d94', '#163142', nf));
+        floorGrad.addColorStop(0.32, lerpColor('#26495c', '#0b1b26', nf));
+        floorGrad.addColorStop(1, lerpColor('#112430', '#040a10', nf));
+
+        ctx.fillStyle = floorGrad;
+        ctx.beginPath();
+        ctx.moveTo(0, WORLD_H);
+        for (let x = 0; x <= WORLD_W + step; x += step) {
+          ctx.lineTo(x, getGroundY(worldScrollX + x));
+        }
+        ctx.lineTo(WORLD_W, WORLD_H);
+        ctx.closePath();
+        ctx.fill();
+
+        // Crisp glacial rim highlight
+        ctx.strokeStyle = lerpColor('#a7cadc', '#3c718a', nf);
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        for (let x = 0; x <= WORLD_W + step; x += step) {
+          const gy = getGroundY(worldScrollX + x);
+          if (x === 0) ctx.moveTo(x, gy + 1);
+          else ctx.lineTo(x, gy + 1);
+        }
+        ctx.stroke();
+
+        // Stratified rock shelf line beneath the ice crust
+        ctx.fillStyle = lerpRgba('#0f212e', '#03070d', nf, 0.55);
+        ctx.beginPath();
+        ctx.moveTo(0, WORLD_H);
+        for (let x = 0; x <= WORLD_W + step; x += step) {
+          ctx.lineTo(x, getGroundY(worldScrollX + x) + 24 + (hash1D(Math.floor((worldScrollX + x) / step)) - 0.5) * 8);
+        }
+        ctx.lineTo(WORLD_W, WORLD_H);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // -----------------------------------------------------------------------
+      // FOREGROUND ICE CAVE ENTRANCE / EXIT ARCHWAY (NON-COLLIDABLE 2.5D DEPTH)
+      // -----------------------------------------------------------------------
+      function drawCaveArchBack(archX) {
+        const nf = nightFactor;
+        // Inner dark cavern mouth depth ring drawn BEHIND the Shima Enaga
+        ctx.save();
+        ctx.fillStyle = lerpColor('#162e3d', '#040a12', nf);
+        ctx.beginPath();
+        ctx.moveTo(archX - 96, 0);
+        ctx.lineTo(archX + 96, 0);
+        ctx.lineTo(archX + 76, 126);
+        ctx.lineTo(archX + 42, 74);
+        ctx.lineTo(archX, 92);
+        ctx.lineTo(archX - 42, 74);
+        ctx.lineTo(archX - 76, 126);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawCaveArchForeground(archX) {
+        const nf = nightFactor;
+        // Massive jagged polygonal ice-and-rock archway scrolling IN FRONT of the bird (zero collision)
+        ctx.save();
+
+        // Top overhanging craggy rock & glacial ice brow
+        const browGrad = ctx.createLinearGradient(archX - 110, 0, archX + 110, 140);
+        browGrad.addColorStop(0, lerpColor('#1c384a', '#060f18', nf));
+        browGrad.addColorStop(0.5, lerpColor('#3f6b82', '#132a3a', nf));
+        browGrad.addColorStop(1, lerpColor('#1b3545', '#050c14', nf));
+
+        ctx.fillStyle = browGrad;
+        ctx.beginPath();
+        ctx.moveTo(archX - 112, 0);
+        ctx.lineTo(archX + 112, 0);
+        ctx.lineTo(archX + 94, 108);
+        ctx.lineTo(archX + 54, 62);
+        ctx.lineTo(archX + 14, 86);
+        ctx.lineTo(archX - 24, 58);
+        ctx.lineTo(archX - 66, 94);
+        ctx.lineTo(archX - 102, 48);
+        ctx.closePath();
+        ctx.fill();
+
+        // Crisp lit polygonal facet ridge along the archway brow
+        ctx.strokeStyle = lerpColor('#b9d4e3', '#3b6c85', nf);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(archX - 102, 48);
+        ctx.lineTo(archX - 66, 94);
+        ctx.lineTo(archX - 24, 58);
+        ctx.lineTo(archX + 14, 86);
+        ctx.lineTo(archX + 54, 62);
+        ctx.lineTo(archX + 94, 108);
+        ctx.stroke();
+
+        // Jagged foreground hanging icicles along the archway mouth
+        const icicles = [
+          { dx: -74, y: 78, len: 54, w: 8 },
+          { dx: -44, y: 68, len: 42, w: 6.5 },
+          { dx: -16, y: 64, len: 62, w: 8.5 },
+          { dx: 18,  y: 78, len: 48, w: 7 },
+          { dx: 48,  y: 66, len: 56, w: 8 },
+          { dx: 76,  y: 86, len: 44, w: 6.5 }
+        ];
+        for (let i = 0; i < icicles.length; i++) {
+          const ic = icicles[i];
+          const ix = archX + ic.dx;
+          // Left lit ice facet
+          ctx.fillStyle = lerpColor('#d2e4ee', '#5b92ad', nf);
+          ctx.beginPath();
+          ctx.moveTo(ix - ic.w, ic.y);
+          ctx.lineTo(ix, ic.y);
+          ctx.lineTo(ix, ic.y + ic.len);
+          ctx.closePath();
+          ctx.fill();
+          // Right shaded ice facet
+          ctx.fillStyle = lerpColor('#4c7c94', '#163345', nf);
+          ctx.beginPath();
+          ctx.moveTo(ix, ic.y);
+          ctx.lineTo(ix + ic.w, ic.y);
+          ctx.lineTo(ix, ic.y + ic.len);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        // Foreground rocky threshold mound at the bottom of the archway
+        const baseY = getGroundY(worldScrollX + archX);
+        ctx.fillStyle = lerpColor('#244354', '#081520', nf);
+        ctx.beginPath();
+        ctx.moveTo(archX - 96, WORLD_H);
+        ctx.lineTo(archX - 64, baseY - 22);
+        ctx.lineTo(archX - 18, baseY - 6);
+        ctx.lineTo(archX + 26, baseY - 18);
+        ctx.lineTo(archX + 76, baseY - 26);
+        ctx.lineTo(archX + 104, WORLD_H);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = lerpColor('#9ab8c9', '#2b546b', nf);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(archX - 64, baseY - 22);
+        ctx.lineTo(archX - 18, baseY - 6);
+        ctx.lineTo(archX + 26, baseY - 18);
+        ctx.lineTo(archX + 76, baseY - 26);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      // -----------------------------------------------------------------------
+      // OBSTACLE RENDERING — ANGULAR SNOW-COVERED PINE CLUSTERS & ICE SPIKES
+      // -----------------------------------------------------------------------
+      function drawAngularPineTree(cx, groundY, width, height, trunkH, tiers, seed) {
+        const nf = nightFactor;
+        const tipY = groundY - height;
+        const trunkTopY = groundY - trunkH;
+        const canopyH = trunkTopY - tipY;
+
+        ctx.save();
+
+        // 1. Slender Bark Trunk planted directly into undulating snow ground
+        const trunkW = Math.max(8, width * 0.14);
+        ctx.fillStyle = lerpColor('#3f4d59', '#0d151f', nf);
+        ctx.fillRect(cx - trunkW * 0.5, trunkTopY - 3, trunkW, trunkH + 10);
+        // Lit left bark edge
+        ctx.fillStyle = lerpColor('#637585', '#1d2b3b', nf);
+        ctx.fillRect(cx - trunkW * 0.5, trunkTopY - 3, trunkW * 0.38, trunkH + 10);
+
+        // 2. Sharp Multi-Polygon Conifer Tiers (Zero bubbly curves)
+        const needleLit = lerpColor('#385766', '#142c3b', nf);
+        const needleDark = lerpColor('#203845', '#091824', nf);
+        const snowLit = lerpColor('#eef4f8', '#9eb4c4', nf);
+        const snowShade = lerpColor('#b9cedc', '#536b7d', nf);
+
+        for (let t = tiers - 1; t >= 0; t--) {
+          const fracTop = t / tiers;
+          const fracBot = (t + 1.22) / tiers;
+          const yTop = tipY + fracTop * canopyH * 0.85;
+          const yBot = Math.min(trunkTopY + 5, tipY + fracBot * canopyH);
+          const halfW = (width * 0.5) * (0.28 + 0.72 * ((t + 1) / tiers));
+          const skew = (hash1D(seed + t * 5.1) - 0.5) * 4;
+
+          // Left lit evergreen bough polygon
+          ctx.fillStyle = needleLit;
+          ctx.beginPath();
+          ctx.moveTo(cx + skew, yTop);
+          ctx.lineTo(cx - halfW * 0.55, yTop + (yBot - yTop) * 0.45);
+          ctx.lineTo(cx - halfW * 0.40, yTop + (yBot - yTop) * 0.52);
+          ctx.lineTo(cx - halfW, yBot);
+          ctx.lineTo(cx, yBot + 4);
+          ctx.closePath();
+          ctx.fill();
+
+          // Right shaded evergreen bough polygon
+          ctx.fillStyle = needleDark;
+          ctx.beginPath();
+          ctx.moveTo(cx + skew, yTop);
+          ctx.lineTo(cx + halfW * 0.55, yTop + (yBot - yTop) * 0.45);
+          ctx.lineTo(cx + halfW * 0.40, yTop + (yBot - yTop) * 0.52);
+          ctx.lineTo(cx + halfW, yBot);
+          ctx.lineTo(cx, yBot + 4);
+          ctx.closePath();
+          ctx.fill();
+
+          // Sharp angular snow cap resting on upper boughs (left lit, right shaded)
+          const snowY = yTop + (yBot - yTop) * 0.62;
+          ctx.fillStyle = snowLit;
+          ctx.beginPath();
+          ctx.moveTo(cx + skew, yTop - 1);
+          ctx.lineTo(cx - halfW * 0.76, snowY);
+          ctx.lineTo(cx - halfW * 0.35, snowY - 4);
+          ctx.lineTo(cx, snowY + 3);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = snowShade;
+          ctx.beginPath();
+          ctx.moveTo(cx + skew, yTop - 1);
+          ctx.lineTo(cx + halfW * 0.76, snowY);
+          ctx.lineTo(cx + halfW * 0.35, snowY - 4);
+          ctx.lineTo(cx, snowY + 3);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+
+      function drawIceSpike(cx, baseY, width, length, isTop, sideSpikes, seed) {
+        const nf = nightFactor;
+        const dir = isTop ? 1 : -1;
+        const tipY = baseY + dir * length;
+
+        ctx.save();
+
+        // Companion sharp side icicles
+        for (let s = 0; s < sideSpikes; s++) {
+          const side = s % 2 === 0 ? -1 : 1;
+          const offX = side * (width * (0.24 + s * 0.08));
+          const subLen = length * (0.42 + hash1D(seed + s * 3.7) * 0.28);
+          const subW = width * 0.21;
+
+          ctx.fillStyle = lerpColor('#4f8199', '#163447', nf);
+          ctx.beginPath();
+          ctx.moveTo(cx + offX - subW, baseY);
+          ctx.lineTo(cx + offX + subW, baseY);
+          ctx.lineTo(cx + offX + side * 2, baseY + dir * subLen);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        // Main angular faceted spike (Left Lit Facet)
+        const leftGrad = ctx.createLinearGradient(cx - width * 0.48, baseY, cx, tipY);
+        leftGrad.addColorStop(0, lerpColor('#6f9fb8', '#1c4257', nf));
+        leftGrad.addColorStop(0.65, lerpColor('#b9d6e6', '#3c7794', nf));
+        leftGrad.addColorStop(1, lerpColor('#e8f2f7', '#89c0d9', nf));
+
+        ctx.fillStyle = leftGrad;
+        ctx.beginPath();
+        ctx.moveTo(cx - width * 0.48, baseY);
+        ctx.lineTo(cx, baseY);
+        ctx.lineTo(cx, tipY);
+        ctx.closePath();
+        ctx.fill();
+
+        // Right Deeper Shaded Facet
+        const rightGrad = ctx.createLinearGradient(cx, baseY, cx + width * 0.48, tipY);
+        rightGrad.addColorStop(0, lerpColor('#234659', '#091824', nf));
+        rightGrad.addColorStop(0.65, lerpColor('#35637a', '#142f40', nf));
+        rightGrad.addColorStop(1, lerpColor('#5c91ab', '#285a73', nf));
+
+        ctx.fillStyle = rightGrad;
+        ctx.beginPath();
+        ctx.moveTo(cx, baseY);
+        ctx.lineTo(cx + width * 0.48, baseY);
+        ctx.lineTo(cx, tipY);
+        ctx.closePath();
+        ctx.fill();
+
+        // Crisp ridge highlight
+        ctx.strokeStyle = lerpRgba('#eef6fa', '#84bed6', nf, 0.75);
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(cx, baseY);
+        ctx.lineTo(cx, tipY);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      function drawObstacles() {
+        for (let i = 0; i < obstacles.length; i++) {
+          const ob = obstacles[i];
+          if (ob.kind === 'PINE_CLUSTER') {
+            for (let t = 0; t < ob.trees.length; t++) {
+              const tr = ob.trees[t];
+              const cx = ob.x + tr.relX + tr.width * 0.5;
+              const groundY = getGroundY(worldScrollX + cx);
+              drawAngularPineTree(cx, groundY, tr.width, tr.height, tr.trunkH, tr.tiers, tr.seed);
+            }
+          } else if (ob.kind === 'ICE_PAIR') {
+            const cx = ob.x + ob.width * 0.5;
+            const groundY = getGroundY(worldScrollX + cx);
+            drawIceSpike(cx, 0, ob.topWidth, ob.topLen, true, ob.topSpikes, ob.seed);
+            drawIceSpike(cx, groundY + 4, ob.bottomWidth, ob.bottomLen + 4, false, ob.bottomSpikes, ob.seed + 19.4);
+          }
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // PLAYER CHARACTER — SCALED-DOWN NIMBLE SHIMA ENAGA (~28% SMALLER)
+      // -----------------------------------------------------------------------
+      function drawShimaEnaga() {
+        ctx.save();
+        ctx.translate(bird.x, bird.y);
+        ctx.rotate(bird.rotation);
+        ctx.scale(0.72, 0.72); // ~28% smaller, nimbler silhouette
+
+        // Slender charcoal-and-white tail feathers
+        ctx.save();
+        ctx.rotate(Math.sin(bird.wingPhase * 0.5) * 0.08);
+        ctx.fillStyle = '#243040';
+        ctx.beginPath();
+        ctx.moveTo(-12, 1);
+        ctx.lineTo(-27, -3);
+        ctx.lineTo(-26, 2.5);
+        ctx.lineTo(-13, 5);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#dce5ec';
+        ctx.beginPath();
+        ctx.moveTo(-13, 3);
+        ctx.lineTo(-25, 1.8);
+        ctx.lineTo(-24, 4);
+        ctx.lineTo(-13, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        // Crisp pure-white cotton-ball body with clear dark-slate outline for readability
+        const bodyGrad = ctx.createRadialGradient(-3, -4, 2, 0, 2, 17);
+        bodyGrad.addColorStop(0, '#ffffff');
+        bodyGrad.addColorStop(0.75, '#f1f5f9');
+        bodyGrad.addColorStop(1, '#cbd5e1');
+
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.ellipse(0, 0.5, 16, 14.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1.9;
+        ctx.beginPath();
+        ctx.ellipse(0, 0.5, 16, 14.8, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Animated angular-tipped wing (dark charcoal tips + white coverts)
+        const wingAngle = Math.sin(bird.wingPhase) * 0.65;
+        ctx.save();
+        ctx.translate(-3, 2);
+        ctx.rotate(wingAngle);
+
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.moveTo(4, -2);
+        ctx.lineTo(-14, 1);
+        ctx.lineTo(-11, 7.5);
+        ctx.lineTo(3, 5.5);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.ellipse(-1, 1.5, 6.5, 4.2, -0.1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Tiny glossy black bead eye + white glint
+        ctx.fillStyle = '#04070d';
+        ctx.beginPath();
+        ctx.arc(9.2, -3.0, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(9.9, -3.8, 0.9, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Crisp tiny dark triangular beak
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.moveTo(14.5, -2.5);
+        ctx.lineTo(19.8, -0.8);
+        ctx.lineTo(14.5, 1.2);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      // -----------------------------------------------------------------------
+      // SNOW, BLIZZARD WHITEOUT & FLAP PARTICLES
+      // -----------------------------------------------------------------------
+      function drawSnowAndBlizzard(clipLeft, clipWidth) {
+        ctx.save();
+        if (clipWidth !== null) {
+          ctx.beginPath();
+          ctx.rect(clipLeft, 0, Math.max(0, clipWidth), WORLD_H);
+          ctx.clip();
+        }
+
+        // Muted Whiteout Mist during 20+ point Snowstorm
+        if (blizzard.intensity > 0.01) {
+          const fogCol = lerpRgba('#dbe5ec', '#526575', nightFactor * 0.72, blizzard.intensity * 0.52);
+          ctx.fillStyle = fogCol;
+          ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+
+          // Crisp diagonal blizzard streaks
+          ctx.strokeStyle = `rgba(232, 240, 246, ${blizzard.intensity * 0.42})`;
+          ctx.lineWidth = 1.4;
+          for (let i = 0; i < 16; i++) {
+            const sx = ((i * 67 - worldTime * 460) % (WORLD_W + 120) + (WORLD_W + 120)) % (WORLD_W + 120) - 40;
+            const sy = ((i * 53 + worldTime * 120) % WORLD_H);
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(sx - 32, sy + 13);
+            ctx.stroke();
+          }
+        }
+
+        // Falling Snowflakes (crisp pixel squares/diamonds)
+        for (let i = 0; i < snowParticles.length; i++) {
+          const s = snowParticles[i];
+          const sz = s.r * (1 + blizzard.intensity * 0.35);
+          ctx.fillStyle = `rgba(236, 242, 247, ${Math.min(1, s.alpha + blizzard.intensity * 0.35)})`;
+          ctx.fillRect(s.x, s.y, sz, sz);
+        }
+
+        ctx.restore();
+      }
+
+      function drawFlapParticles() {
+        for (let i = 0; i < flapParticles.length; i++) {
+          const p = flapParticles[i];
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, p.alpha);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(p.x - p.size * 0.5, p.y - p.size * 0.5, p.size, p.size);
+          ctx.restore();
+        }
+      }
+
+      // -----------------------------------------------------------------------
+      // MASTER RENDER PIPELINE (2.5D Foreground Archway Transition)
+      // -----------------------------------------------------------------------
+      function render() {
+        const scaleX = canvas.width / WORLD_W;
+        const scaleY = canvas.height / WORLD_H;
+
+        ctx.save();
+        ctx.scale(scaleX, scaleY);
+
+        // Collision screen shake
+        if (shakeTime > 0) {
+          const mag = (shakeTime / 14) * 4.5;
+          ctx.translate((Math.random() - 0.5) * mag * 2, (Math.random() - 0.5) * mag * 2);
+        }
+
+        let archX = null;
+
+        // 1. Background, Obstacles & Terrain
+        if (biome === BIOMES.OUTDOOR) {
+          drawOutdoorBackground();
+          drawObstacles();
+          drawOutdoorGround();
+          drawSnowAndBlizzard(0, null);
+        } else if (biome === BIOMES.CAVE) {
+          drawCaveBackground();
+          drawObstacles();
+          drawCaveGround();
+        } else {
+          // Physical Cave Archway scrolls smoothly from right to left across the viewport
+          const sweepT = clamp((transitionProgress - 0.14) / 0.78, 0, 1);
+          archX = lerp(WORLD_W + 130, -130, sweepT);
+          const enteringCave = biome === BIOMES.TRANSITION_IN;
+
+          // Left of archway interior
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, 0, Math.max(0, archX), WORLD_H);
+          ctx.clip();
+          if (enteringCave) {
+            drawOutdoorBackground();
+            drawOutdoorGround();
+          } else {
+            drawCaveBackground();
+            drawCaveGround();
+          }
+          ctx.restore();
+
+          // Right of archway interior
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(Math.max(0, archX), 0, WORLD_W - Math.max(0, archX), WORLD_H);
+          ctx.clip();
+          if (enteringCave) {
+            drawCaveBackground();
+            drawCaveGround();
+          } else {
+            drawOutdoorBackground();
+            drawOutdoorGround();
+          }
+          ctx.restore();
+
+          // Departing obstacles scroll off cleanly
+          drawObstacles();
+
+          // Outdoor snow clipped strictly to the Outdoor side of the cave mouth
+          if (enteringCave && archX > 0) {
+            drawSnowAndBlizzard(0, archX);
+          } else if (!enteringCave && archX < WORLD_W) {
+            drawSnowAndBlizzard(Math.max(0, archX), WORLD_W - Math.max(0, archX));
+          }
+
+          // Back depth rim of the cave archway (behind the bird)
+          drawCaveArchBack(archX);
+        }
+
+        // 2. Player Character & Snow Puffs
+        drawFlapParticles();
+        drawShimaEnaga();
+
+        // 3. Foreground Non-Collidable Cave Archway (drawn IN FRONT of the bird as you fly through!)
+        if (archX !== null) {
+          drawCaveArchForeground(archX);
+        }
+
+        // 4. Collision Flash
+        if (flashAlpha > 0) {
+          ctx.fillStyle = `rgba(232, 239, 245, ${flashAlpha})`;
+          ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+        }
+
+        ctx.restore();
+      }
+
+      // -----------------------------------------------------------------------
+      // Main Animation Loop
+      // -----------------------------------------------------------------------
+      function gameLoop(timestamp) {
+        if (!lastFrameTime) lastFrameTime = timestamp;
+        const elapsedMs = Math.min(timestamp - lastFrameTime, 50);
+        lastFrameTime = timestamp;
+        const dt = elapsedMs / (1000 / 60);
+
+        update(dt);
+        render();
+
+        requestAnimationFrame(gameLoop);
+      }
+
+      // -----------------------------------------------------------------------
+      // Unified Input Handling (Keyboard, Mouse, Mobile Touch)
+      // -----------------------------------------------------------------------
+      function handlePrimaryAction() {
+        if (gameState === STATES.READY) {
+          startGameAndFlap();
+        } else if (gameState === STATES.PLAYING) {
+          performFlap();
+        } else if (gameState === STATES.PAUSED) {
+          togglePause();
+        } else if (gameState === STATES.GAME_OVER) {
+          if (performance.now() - gameOverTimestamp > 420) {
+            startGameAndFlap();
+          }
+        }
+      }
+
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+          e.preventDefault();
+          if (!e.repeat) handlePrimaryAction();
+        } else if (e.code === 'KeyP' || e.code === 'Escape') {
+          if (gameState === STATES.PLAYING || gameState === STATES.PAUSED) {
+            e.preventDefault();
+            togglePause();
+          }
+        } else if (e.code === 'KeyM') {
+          e.preventDefault();
+          toggleSoundUI();
+        } else if (e.code === 'KeyR') {
+          e.preventDefault();
+          startGameAndFlap();
+        }
+      });
+
+      canvas.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        handlePrimaryAction();
+      });
+
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handlePrimaryAction();
+      }, { passive: false });
+
+      startBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startGameAndFlap();
+      });
+
+      resumeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePause();
+      });
+
+      // Retro Game Over YES / NO buttons
+      yesBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startGameAndFlap();
+      });
+
+      noBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        enterReadyState();
+      });
+
+      pauseToggleBtn.addEventListener('click', () => {
+        if (gameState === STATES.PLAYING || gameState === STATES.PAUSED) {
+          togglePause();
+        }
+      });
+
+      function toggleSoundUI() {
+        const isOn = SoundFX.toggle();
+        soundLabel.textContent = isOn ? '♪ SFX ON' : '× SFX OFF';
+        soundToggleBtn.classList.toggle('active-state', !isOn);
+      }
+
+      soundToggleBtn.addEventListener('click', toggleSoundUI);
+      quickRestartBtn.addEventListener('click', () => startGameAndFlap());
+
+      // -----------------------------------------------------------------------
+      // Responsive HiDPI Canvas Sizing
+      // -----------------------------------------------------------------------
+      function resizeCanvas() {
+        const rect = stageWrapper.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const targetW = Math.max(1, Math.round(rect.width * dpr));
+        const targetH = Math.max(1, Math.round(rect.height * dpr));
+
+        if (canvas.width !== targetW || canvas.height !== targetH) {
+          canvas.width = targetW;
+          canvas.height = targetH;
+        }
+        render();
+      }
+
+      window.addEventListener('resize', resizeCanvas);
+
+      // -----------------------------------------------------------------------
+      // Initialize on Window Load
+      // -----------------------------------------------------------------------
+      window.onload = function () {
+        initScenery();
+        enterReadyState();
+        resizeCanvas();
+        lastFrameTime = performance.now();
+        requestAnimationFrame(gameLoop);
+      };
+    })();
+  </script>
+</body>
+</html>

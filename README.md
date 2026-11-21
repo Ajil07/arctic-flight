@@ -27,6 +27,12 @@
 * Procedurally drawn pure-white cotton-ball silhouette with glossy bead eyes, dark triangular beak, charcoal-tipped animated wings, and a slender tail.
 * Compact, agile hitbox (`radius: 10`) with velocity-driven pitch tilt and trailing pixel-snow feather puffs on every flap.
 
+<img width="84" height="94" alt="Screenshot 2026-11-21 162142" src="https://github.com/user-attachments/assets/798f1f7b-abef-4c22-be67-a376e54d5de9" />
+
+
+
+
+
 ### 🌲 Dynamic Biomes & 2.5D Cave Transitions
 * **Outdoor Snowy Forest:** Features a **4-layer parallax pine forest** backed by angular polygonal mountains and rolling snow terrain. Obstacles spawn as **Chrome Dino-style clusters of 2–4 snow-covered pine trees** of varied heights and widths planted directly onto the undulating ground.
 * **Foreground Ice Cave Entrance:** Transitioning between biomes triggers an obstacle-free glide zone framed by a massive, non-collidable **2.5D polygonal ice-and-rock archway** that scrolls in front of the bird as you fly through it.

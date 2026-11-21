@@ -61,7 +61,7 @@
 <img width="460" height="720" alt="Screenshot 2026-11-21 160533" src="https://github.com/user-attachments/assets/6231a6da-ac5a-4de2-ab43-4de593494693" />
 
 
-<img width="896" height="1600" alt="2aad3024-8ebd-413e-9dde-525dd80cceff" src="https://github.com/user-attachments/assets/88d9872f-c3a5-4554-ad4a-9a4067c2a96c" />
+<img width="460" height="720" alt="2aad3024-8ebd-413e-9dde-525dd80cceff" src="https://github.com/user-attachments/assets/88d9872f-c3a5-4554-ad4a-9a4067c2a96c" />
 ]
 
 
